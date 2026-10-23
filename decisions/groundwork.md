@@ -40,7 +40,7 @@ The three cross-cutting tests from TEST-3: `DependencyRulesTest` (Layer 1), `Ope
 PHPUnit suites: `phpunit.xml.dist` runs the WordPress-free suites `unit`, `architecture`, `contract` and `security`; `phpunit-integration.xml.dist` runs `tests/Integration/` and `OpenApiSchemaConformanceTest` in the Docker environment (GW-5). `tests/Security/PolicyMatrixDataProvider.php` turns each route's access level into denial cases (anonymous → 401; inside one's own tenant → 403; another vendor's resource → 404, SEC-4) for the matrix tests that `core.identity` adds. `ThreatModelCoverageTest` (in the `security` suite) checks the threat model against TEST-3, the master's rule IDs and the module decision files (GW-9).
 
 ## 9. Scale
-The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipeline are ROAD-5 ticket 9, built in Phase 1 with `core.kernel`; the nightly scale CI job arrives with it (GW-6).
+The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipeline are ROAD-5 ticket 9, built in Phase 1 with `core.kernel`; the scale CI job arrives with it (GW-6).
 
 ## 10. Decisions
 - **GW-1 Repository layout.** Each repository's root is the plugin root. In `mercatus`, the master document, `decisions/`, `archive/` and `docs/` (ADRs, threat model) live in the repository and are excluded from the distributed zip (GW-10). Local clones use the repo-local git identity `sushobhan-pal <sushobhan.pal@gmail.com>` and SSH remotes.
@@ -64,8 +64,8 @@ The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipe
   - **Every pull request:** PHPCS, PHPStan, Deptrac, PHP unit tests and Vitest, plus two integration legs:
     - *minimum:* PHP 8.2, WordPress 6.6, WooCommerce 9.2, MySQL 8.0, no persistent cache;
     - *latest:* latest PHP, latest WordPress and WooCommerce, MariaDB 11.4, Redis.
-  - **Push to `main`, plus nightly:** the full 5 databases × 3 cache modes on latest PHP, WordPress and WooCommerce; the minimum leg; Playwright end-to-end tests.
-  - **Nightly only:** the scale suite (PLAT-10).
+  - **Push to `main`, plus nightly when `main` changed since the last nightly (KER-17):** the full 5 databases × 3 cache modes on latest PHP, WordPress and WooCommerce; the minimum leg; Playwright end-to-end tests.
+  - **Weekly, on demand and on pull requests labelled `scale`:** the scale suite (PLAT-10, master v2.7).
 
   Pull requests run 2 integration legs instead of 15 because Actions minutes on private repositories are limited by the account's plan. The Playwright job arrives with the first end-to-end specs (`core.vendor`) and the scale job with ROAD-5 ticket 9; until then there is nothing for them to run.
 - **GW-7 Contracts.** The ten Phase 0 contracts (`ModuleManifest`, `CachePort`, `CoordinationPort`, `TaxRateResolver`, `StoreTaxPolicy`, `CommissionRuleSource`, `OrderCompletionPolicy`, `ChildOrderExposure`, `PayoutProvider`, `CatalogSearchPort`) are written in `src/Contracts/`, with method signatures and documented semantics. They are frozen at the Phase 0 exit; after that they change only under ARCH-6's versioning rules.

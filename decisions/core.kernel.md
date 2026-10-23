@@ -4,7 +4,7 @@
 **Phase / position:** Phase 1, module 1 in ROAD-3
 **Branch:** `core.kernel`
 **Depends on:** Groundwork (module 0)
-**Implements master rules:** ROAD-3 row 1, ROAD-5 tickets 6–9, ARCH-6, ARCH-8 (points 2 and 4), ARCH-10, PLAT-3 to PLAT-6, PLAT-10 (seeder and gate), API-3, DATA-1, DATA-2 (`schema_versions`, `events_outbox`, `audit_log`), DRY-1 (settings registry, migrations), DRY-2 (the kernel's shared pieces), SEC-1 (the worker's system actor)
+**Implements master rules:** ROAD-3 row 1, ROAD-5 tickets 6–9, ARCH-6, ARCH-8 (points 2, 4 and 8, master v2.7), ARCH-10, PLAT-3 to PLAT-6, PLAT-10 (seeder and gate), API-3, DATA-1, DATA-2 (`schema_versions`, `events_outbox`, `audit_log`), DRY-1 (settings registry, migrations), DRY-2 (the kernel's shared pieces), SEC-1 (the worker's system actor)
 
 Local IDs use the code `KER`.
 
@@ -14,6 +14,8 @@ Local IDs use the code `KER`.
 - **In:**
   - Boot, the requirements check (PLAT-1) and the `mercatus()` facade (ARCH-4).
   - The module registry: manifest validation, dependency order, version compatibility, inactive modules with zero footprint (ARCH-6), and the compiled feature manifest.
+  - Module registration for Pro (KER-13), and switching optional modules on and off, with the API behind the Modules screen (KER-14).
+  - Uninstall (KER-16).
   - The typed settings registry (DRY-1).
   - The migration runner and `wp mercatus migrate` (DATA-1).
   - `CachePort` and `CoordinationPort` over `wp_cache_*` (PLAT-3, PLAT-5, PLAT-6).
@@ -42,28 +44,30 @@ Local IDs use the code `KER`.
 ## 3. Settings
 The kernel's own settings, changed by an administrator only:
 - `kernel.outbox_retention_days`: days processed outbox rows are kept. Default 7.
-- `kernel.audit_retention`: see OQ-4.
-- `kernel.remove_data_on_uninstall`: see OQ-5.
+- `kernel.audit_purge_after_years`: delete audit entries older than this many years. Default: off, so entries are kept forever (KER-15).
+- `kernel.remove_data_on_uninstall`: remove all Mercatus data when the plugin is deleted. Default: off (KER-16).
 
 The registry itself is KER-4.
 
 ## 4. API
-Routes go through the kernel's route registrar, and each declares the Groundwork route metadata (`'mercatus' => array( 'access' => … )`). How they're protected before `core.identity` exists is OQ-1. Paths follow API-2.
+Routes go through the kernel's route registrar, and each declares the Groundwork route metadata (`'mercatus' => array( 'access' => … )`). Until `core.identity` exists, non-public routes fail closed (KER-11). Paths follow API-2.
 - `GET /features`: `public`. Module IDs and the features they provide; module versions only for administrators.
 - `GET /health`: `admin`. Requirements, persistent cache present or absent, rate limiting on or off (PLAT-8), migrations pending or drifted, outbox backlog and failed events, the Action Scheduler heartbeat, and each module's health checks.
 - `POST /system/cache/flush-group`: `admin`. Bumps a group's revision (PLAT-5). It changes no money or stock, so it needs no `Idempotency-Key`; repeating it is harmless.
+- `GET /modules`: `admin`. Optional modules only, with their state; mandatory modules are never listed (KER-14).
+- `POST /modules/{id}/activate` and `POST /modules/{id}/deactivate`: `admin`. Action subresources (API-1). Repeating one is harmless. Switching off a module that another active module depends on is refused with `mercatus_module_required_by`.
 
 ## 5. Events and hooks
 - **Events emitted:**
-  - `kernel.module.activated` and `kernel.module.deactivated` (Pro modules, OQ-3);
+  - `kernel.module.activated` and `kernel.module.deactivated` (optional modules, KER-14);
   - `kernel.settings.updated`, with the changed keys only, never values.
 - **Event names:** `{module}.{aggregate}.{past_tense}`, for example `vendor.application.approved` (KER-8).
 - **Bridge (ARCH-8 point 2):** after commit, every event reaches WordPress through `do_action( 'mercatus_event', $event )` and `do_action( 'mercatus_event_{name with dots as underscores}', $event )`, from one bridge.
-- **Module registration:** see OQ-2.
+- **Module registration:** the `mercatus_register_modules` action (KER-13).
 - **Filters:** none. The kernel adds no `mercatus_*` filters.
 
 ## 6. UI
-None. Unmet requirements, pending migrations and drifted migration checksums show as wp-admin notices to administrators, linking to the health report. Mercatus's own screens start with `core.vendor` (ARCH-13).
+Unmet requirements, pending migrations and drifted migration checksums show as wp-admin notices to administrators, linking to the health report. The Modules screen, which lists only optional modules (KER-14), is built with the dashboard shell in `core.vendor` (ARCH-13) on this module's API.
 
 ## 7. Extension seams
 - **`CoordinationPort`:** a database-backed implementation can replace the cache-backed one without touching callers (PLAT-6).
@@ -86,7 +90,8 @@ None. Unmet requirements, pending migrations and drifted migration checksums sho
   - `CronContextSpoofingTest` and `OutboxBatchThroughputBenchmarkTest` (1,000 events in under 2 s).
 - **Scale:** `BaselineQueryAndLatencyGateTest` (TEST-3, Layer 6).
 - **Conformance:** the `CachePort` and `CoordinationPort` adapters run Groundwork's conformance traits in the integration suite, under every cache profile.
-- **When the auth tests can pass:** `HealthEndpointAuthTest` and `CacheFlushAuthorizationTest` depend on OQ-1.
+- **Before `core.identity`:** `HealthEndpointAuthTest` and `CacheFlushAuthorizationTest` ship here and prove the refusals: anonymous gets 401, and a signed-in non-admin gets 403. `core.identity` adds the cases where an administrator is allowed (KER-11).
+- **Extra:** `ModuleActivationTest`. Mandatory modules can't be switched off or listed. Switching off a module that an active module depends on is refused. An optional module switched off leaves no footprint, proved with a fixture module. Reviews and Shipping prove their own zero footprint when they're built.
 - **Threat model:** this module owns no tests the threat model adds. The threats its TEST-3 tests cover are:
 
   | Threat | Tests |
@@ -102,7 +107,7 @@ None. Unmet requirements, pending migrations and drifted migration checksums sho
 - **Boot:** Mercatus runs no queries of its own (`ZeroQueryKernelBootTest`). Module states and applied migration versions come from the autoloaded `mercatus_kernel` option; settings come from small autoloaded options.
 - **Warm cache:** reads through `CachePort` hit no SQL (`WarmCacheZeroSqlBenchmarkTest`).
 - **Outbox:** the throughput ceiling above, and claims through `idx_outbox_poll` only.
-- **Scale suite:** seeding, the dump and the schedule are KER-12 and OQ-6.
+- **Scale suite:** seeding and the dump are KER-12; the schedule is KER-17.
 
 ## 10. Decisions
 - **KER-1 Boot.**
@@ -152,43 +157,45 @@ None. Unmet requirements, pending migrations and drifted migration checksums sho
 - **KER-10 IDs and clock.**
   - Public identifiers (`event_uuid` and similar) are UUIDv7, which sort by time and keep inserts index-friendly.
   - `Clock` has a system and a frozen implementation; no code calls `time()` directly outside `SystemClock`.
-- **KER-11 Route registrar.**
+- **KER-11 Route registrar (OQ-1).**
   - Modules register routes only through the registrar, which takes the manifest's `routes` class (ARCH-8 point 4).
-  - It requires the access metadata (Groundwork §4), loads a route's schema only when that route matches, and sets each route's permission callback from its access level.
-  - What happens to non-public access levels before `core.identity` is OQ-1.
+  - It requires the access metadata (Groundwork §4), loads a route's schema only when that route matches, and sets each route's permission callback from its access level through an `AccessGate`.
+  - The kernel's `AccessGate` allows `public` and refuses everything else (401 when signed out, 403 otherwise). `core.identity` replaces it with its policy pipeline (SEC-2). Admin routes are therefore registered now but work once `core.identity` lands.
 - **KER-12 Scale seeding.**
   - `wp mercatus seed:scale` is deterministic (fixed random seed) and runs in steps; each Core module adds its step (ARCH-3 `database/seeders/`).
   - It creates products through WooCommerce CRUD (G-DB-4), even though that's slow, because the dump is built rarely.
   - The dump (`mysqldump`, compressed) is stored as a GitHub Actions cache entry keyed by a hash of the seeders, and rebuilt when they change.
   - `database/seeders/` is development tooling and is left out of the plugin zip (GW-10).
 
+- **KER-13 Module registration (OQ-2).**
+  - Pro, and any later add-on, registers modules on one documented action, `mercatus_register_modules`. The action passes a `ModuleRegistrar` contract (new and additive, so a minor version, ARCH-6), whose `register( ModuleManifest )` the add-on calls.
+  - Core fires the action once, during boot, before validating the registry.
+  - Master v2.7 adds module registration to ARCH-8 as point 8.
+- **KER-14 Optional modules (OQ-3).**
+  - In Free, Reviews (`core.reviews`) and Shipping (`core.shipping`) are optional. Every other Free module is always on. Every Pro module is optional.
+  - Core marks its optional modules in its own module list; the contract doesn't change.
+  - The Modules screen lists optional modules only, Pro modules included, with `pro.licensing` gating Pro's. Mandatory modules never appear.
+  - Both optional Free modules are on by default on a new install.
+  - Switching a module off keeps its data and leaves zero footprint: no hooks, routes, menu items or queries (ARCH-6). Switching it back on resumes.
+  - With Shipping off, Mercatus adds no vendor shipping, and WooCommerce's own shipping settings, if any, apply. `core.orders` and `core.tax` must handle orders without vendor shipping packages, and their decision files cover it.
+  - Master v2.7 records the optional modules in ARCH-6 and the Modules endpoints in API-2.
+- **KER-15 Audit-log retention (OQ-4).** Entries are kept forever by default. The `kernel.audit_purge_after_years` setting deletes older entries in daily batches, and it is off by default. Ledger entries are never purged; they aren't part of the audit log.
+- **KER-16 Uninstall (OQ-5).**
+  - Deleting the plugin removes nothing unless `kernel.remove_data_on_uninstall` is on. This works like WooCommerce's `WC_REMOVE_ALL_DATA`, but as a setting.
+  - When it is on, `uninstall.php` drops every `wp_mercatus_*` table, every `mercatus_*` option and Mercatus's Action Scheduler actions.
+  - The setting's description warns that vendor balances and order splits go with them.
+- **KER-17 CI schedule (OQ-6).**
+  - The nightly full matrix runs only when `main` has changed since the last nightly.
+  - The scale suite runs weekly, on demand (`workflow_dispatch`), and on pull requests labelled `scale`, instead of nightly.
+  - This keeps GitHub Free's minutes in budget: about 37 billed minutes per full run against 2,000 a month. Revisit when the Core repository goes public, since public repositories get free minutes.
+  - Master v2.7 changes PLAT-10, TEST-1 Layer 6 and TEST-4, and GW-6 changes to match.
+
 ## 11. Open questions
-- **OQ-1 Kernel routes before `core.identity`.** The kernel ships before the policy engine and the base REST controller.
-  - **(a, recommended)** The kernel builds the registrar with a fail-closed access gate. `public` routes work now (`GET /features`). Non-public routes are registered but answer 401 or 403 until `core.identity` plugs in its policy pipeline. `HealthEndpointAuthTest` and `CacheFlushAuthorizationTest` pass once that lands, and `FeaturesEndpointContractTest` runs now.
-  - **(b)** The kernel builds only the application queries and commands. All three routes, and their tests, move to `core.identity`.
-  - **(c)** Interim WordPress capability checks (`manage_woocommerce`) until `core.identity`. This breaks G-SEC-1, so not recommended.
-- **OQ-2 How Pro registers its modules.** ARCH-8 lists the published extension points, but none of them is module registration.
-  - **(a, recommended)** One documented action, `mercatus_register_modules`, passing a new `ModuleRegistrar` contract (additive, so a minor version). This needs master v2.7 to add "module registration" to ARCH-8.
-  - **(b)** A filter returning an array of manifests. Not recommended: G-EXT-2 forbids filters over internal arrays.
-  - **(c)** Pro calls `mercatus()->modules()->register()` on `plugins_loaded`. This depends on load order and is easy to break.
-- **OQ-3 Can the admin switch off Free modules** (for example Reviews)?
-  - **(a, recommended)** No. Free modules are always on in version 1. Activation, deactivation and zero footprint apply to Pro modules, and the kernel tests them with a fixture module.
-  - **(b)** Yes, for optional Free modules. This means more combinations to test, and every module needs a safe off state.
-- **OQ-4 Audit-log retention.** The audit log is append-only and holds no personal data, so it only grows.
-  - **(a, recommended)** Keep entries forever by default, with an admin setting "Delete audit entries older than N years", off by default.
-  - **(b)** A fixed retention, for example 8 years, which covers common tax-record rules.
-  - **(c)** One year.
-- **OQ-5 Uninstall.**
-  - **(a, recommended)** Keep all Mercatus data when the plugin is deleted, unless the admin has turned on "Remove all Mercatus data when the plugin is deleted" (off by default), the way WooCommerce's `WC_REMOVE_ALL_DATA` works. Vendor balances and order splits are financial records.
-  - **(b)** Always remove.
-  - **(c)** Never remove.
-- **OQ-6 Actions minutes and the scale schedule.** The first `main` run used about 37 billed minutes (19 jobs, each rounded up to a whole minute). A pull-request run uses about 8. On GitHub Free (2,000 minutes a month for private repositories, GW-12), the nightly full matrix alone uses about 1,100 a month. The nightly scale suite (PLAT-10), run with and without a persistent cache, would push that over the limit.
-  - **(a, recommended)** Run the nightly matrix only when `main` changed since the last run. Run the scale suite weekly, on demand, and on pull requests labelled `scale`. This needs master v2.7 to change PLAT-10's "nightly" and an update to GW-6.
-  - **(b)** Keep everything nightly as written, and accept running past the free minutes (paid overage, or a paid plan).
-  - **(c)** Add a self-hosted runner (for example this Mac or a small server) for the nightly and scale jobs. Its minutes are free, but it has to be maintained.
+None. All six were answered on 2026-10-23 and are recorded as KER-11 and KER-13 to KER-17.
 
 ## 12. Done when
-- Every test in §8 passes in CI with and without a persistent cache (Phase 1 gate, ROAD-3), except those that OQ-1's answer moves to `core.identity`.
+- Master v2.7 is merged.
+- Every test in §8 passes in CI with and without a persistent cache (Phase 1 gate, ROAD-3). The admin-allowed cases of the auth tests follow with `core.identity` (KER-11).
 - `openapi/mercatus-v1.yaml` includes the kernel's routes, and Redocly passes.
 - `wp mercatus seed:scale` builds the dump, and `BaselineQueryAndLatencyGateTest` passes on it.
 - No Section 2 guardrail is violated, and this file is marked Implemented.
