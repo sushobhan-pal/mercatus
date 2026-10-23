@@ -48,7 +48,7 @@ The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipe
   - PHP_CodeSniffer with WPCS 3 (WordPress-Extra without the file-name and naming sniffs, ARCH-5) plus PHPCompatibilityWP set to PHP 8.2+.
   - Deptrac with layer rules per ARCH-2.
   - Strauss for prefixing third-party libraries (ARCH-4 allows Strauss or PHP-Scoper; Strauss is chosen because it rewrites Composer autoloading for WordPress plugins with little setup).
-- **GW-4 JS tooling.** Node 22 LTS, pinned in `.nvmrc`. `@wordpress/scripts` handles build, lint, Jest and Playwright (with `@wordpress/e2e-test-utils-playwright`), per ARCH-13.
+- **GW-4 JS tooling.** Node 22 LTS, pinned in `.nvmrc`. `@wordpress/scripts` handles build, lint, Vitest unit tests (Vitest 5 with Vite 8, the runner it ships by default) and Playwright (with `@wordpress/e2e-test-utils-playwright`), per ARCH-13 and master v2.3.
 - **GW-5 Test environment (TEST-4).** `compose.yaml` defines:
   - a WordPress service whose PHP version is a build argument;
   - one database profile per supported database: `mysql-8.0`, `mysql-8.4`, `mariadb-10.6`, `mariadb-10.11`, `mariadb-11.4`;
@@ -57,13 +57,13 @@ The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipe
 
   Test commands run inside the WordPress service, so a CI combination is reproduced locally with one `docker compose --profile … up`.
 - **GW-6 CI matrix (GitHub Actions).** The master document fixes the database × cache matrix but not PHP versions, so CI also covers PHP 8.2 (the minimum) and "latest PHP": the newest version that both WordPress and WooCommerce officially support. A non-blocking job also runs the next PHP version, so problems show up early without failing pull requests.
-  - **Every pull request:** PHPCS, PHPStan, Deptrac, PHP unit tests and Jest, plus two integration legs:
+  - **Every pull request:** PHPCS, PHPStan, Deptrac, PHP unit tests and Vitest, plus two integration legs:
     - *minimum:* PHP 8.2, WordPress 6.6, WooCommerce 9.2, MySQL 8.0, no persistent cache;
     - *latest:* latest PHP, latest WordPress and WooCommerce, MariaDB 11.4, Redis.
   - **Push to `main`, plus nightly:** the full 5 databases × 3 cache modes on latest PHP, WordPress and WooCommerce; the minimum leg; Playwright end-to-end tests.
   - **Nightly only:** the scale suite (PLAT-10).
 
-  Pull requests run 2 integration legs instead of 15 because Actions minutes on private repositories are limited by the account's plan.
+  Pull requests run 2 integration legs instead of 15 because Actions minutes on private repositories are limited by the account's plan. The Playwright job arrives with the first end-to-end specs (`core.vendor`) and the scale job with ROAD-5 ticket 9; until then there is nothing for them to run.
 - **GW-7 Contracts.** The ten Phase 0 contracts (`ModuleManifest`, `CachePort`, `CoordinationPort`, `TaxRateResolver`, `StoreTaxPolicy`, `CommissionRuleSource`, `OrderCompletionPolicy`, `ChildOrderExposure`, `PayoutProvider`, `CatalogSearchPort`) are written as PHP interfaces in `src/Contracts/`, with method signatures, documented semantics and a conformance-test trait each. They are frozen at the Phase 0 exit; after that they change only under ARCH-6's versioning rules.
 - **GW-8 OpenAPI generation.** A WP-CLI command, `wp mercatus openapi:export`, builds `openapi/mercatus-v1.yaml` from the registered routes' schemas. CI regenerates the file and fails if it differs from the committed one (DRY-1).
 - **GW-9 ADR and threat model.** `docs/architecture/decisions/0001-api-first-modular-monolith.md` records the core architecture choice. `docs/security/threat-model.md` lists STRIDE and OWASP API Top 10 threats per actor and surface, each mapped to a test in `tests/Security/`.

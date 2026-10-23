@@ -1,0 +1,11 @@
+parameters:
+	level: 8
+	paths:
+		- mercatus.php
+		- src
+		- tests
+	excludePaths:
+		- tests/Architecture/Fixtures
+	scanFiles:
+		- vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+		- vendor/php-stubs/wordpress-tests-stubs/wordpress-tests-stubs.php

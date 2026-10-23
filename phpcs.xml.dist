@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<ruleset name="Mercatus">
+	<description>Mercatus coding standard: WordPress-Extra without the file-name and naming sniffs (ARCH-5).</description>
+
+	<file>mercatus.php</file>
+	<file>src</file>
+	<file>tests</file>
+
+	<!-- Fixtures break the rules on purpose so DependencyRulesTest can prove it catches them. -->
+	<exclude-pattern>tests/Architecture/Fixtures/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg name="parallel" value="8"/>
+	<arg value="sp"/>
+
+	<config name="minimum_wp_version" value="6.6"/>
+	<config name="testVersion" value="8.2-"/>
+
+	<rule ref="WordPress-Extra">
+		<exclude name="WordPress.Files.FileName"/>
+		<exclude name="WordPress.NamingConventions.ValidFunctionName"/>
+		<exclude name="WordPress.NamingConventions.ValidVariableName"/>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="mercatus"/>
+				<element value="Mercatus"/>
+			</property>
+		</properties>
+		<!-- WordPress test-suite config and bootstrap: they must define WordPress's own constants and globals. -->
+		<exclude-pattern>tests/wp-tests-config.php</exclude-pattern>
+		<exclude-pattern>tests/bootstrap-integration.php</exclude-pattern>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="mercatus"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Tests read local fixture files directly; the WordPress filesystem API doesn't apply there. -->
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+
+	<rule ref="PHPCompatibilityWP"/>
+</ruleset>

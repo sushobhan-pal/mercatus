@@ -1,0 +1,85 @@
+# Layer rules (ARCH-1, ARCH-2, TEST-1 Layer 1). Rules Deptrac can't express live in DependencyRulesTest.
+deptrac:
+  paths:
+    - ./src
+  layers:
+    - name: Domain
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\[^\\]+\\Domain\\#'
+    - name: Application
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\[^\\]+\\Application\\#'
+    - name: Infrastructure
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\([^\\]+\\)?Infrastructure\\#'
+    - name: Api
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\[^\\]+\\Api\\#'
+    - name: Contracts
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\Contracts\\#'
+    - name: Shared
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\Shared\\#'
+    - name: Kernel
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\Kernel\\#'
+    - name: Internal
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Core\\Internal\\#'
+    # Core never depends on Pro (G-BND-3): no ruleset below allows this layer.
+    - name: Pro
+      collectors:
+        - type: classNameRegex
+          value: '#^Mercatus\\Pro\\#'
+    # WordPress and WooCommerce runtime types that Domain and Application must not touch.
+    - name: WordPressRuntime
+      collectors:
+        - type: classNameRegex
+          value: '#^(WP_REST_[A-Za-z_]+|WC_Product[A-Za-z_]*|WC_Order[A-Za-z_]*|WC_Abstract_Order|wpdb)$#'
+  ruleset:
+    Domain:
+      - Shared
+      - Contracts
+    Application:
+      - Domain
+      - Shared
+      - Contracts
+    Infrastructure:
+      - Application
+      - Domain
+      - Shared
+      - Contracts
+      - Internal
+      - WordPressRuntime
+    Api:
+      - Application
+      - Shared
+      - Contracts
+      - WordPressRuntime
+    Contracts:
+      - Shared
+    Shared:
+      - Contracts
+      - WordPressRuntime
+    Kernel:
+      - Domain
+      - Application
+      - Infrastructure
+      - Api
+      - Contracts
+      - Shared
+      - Internal
+      - WordPressRuntime
+    Internal:
+      - Shared
+      - Contracts
+      - WordPressRuntime
