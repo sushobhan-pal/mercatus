@@ -1,6 +1,6 @@
 # `core.kernel` — Decision File
 
-**Status:** Draft
+**Status:** Approved (2026-10-23)
 **Phase / position:** Phase 1, module 1 in ROAD-3
 **Branch:** `core.kernel`
 **Depends on:** Groundwork (module 0)
