@@ -1,6 +1,6 @@
 # Mercatus — Master Architecture, Decisions & Testing Constitution
 
-**Version:** 2.2, frozen 2026-10-23.
+**Version:** 2.3, frozen 2026-10-23.
 **Scope:** the single source of truth for **Mercatus** (free) and **Mercatus Pro**: product decisions, architecture, data model, security, testing and roadmap.
 **Change control:** this document is frozen. A change needs the product owner's approval, is made directly in the section it belongs to, and raises the version. The previous version is archived in `archive/`.
 
@@ -518,7 +518,7 @@ return new ModuleManifest(
   - **Layer 4, integration (`tests/Integration/`):** MySQL 8.0 and 8.4, MariaDB 10.6, 10.11 and 11.4, WordPress 6.6+, WooCommerce 9.2+ with HPOS; each run with Redis, with Memcached and with no persistent cache. Covers migrations (up, idempotent re-run, checksums, Pro lazy migration); repositories with `EXPLAIN` assertions (no `type = ALL`, no `Using filesort` on hot queries); `CachePort` and `CoordinationPort` with and without a persistent cache; idempotency under concurrent duplicates; ETags stable across requests without a persistent cache; the two-stage split on HPOS (no duplicate stock deductions or emails, children hidden per ORD-7); WooCommerce tax integration (per-item rates, snapshots from saved order taxes, the TAX-8 safety net, displayed prices matching the cart); outbox lease claiming with two parallel workers.
   - **Layer 5, security (`tests/Security/`):** see TEST-2.
   - **Layer 6, scale (`tests/Scale/`):** nightly, restored from a saved dump of `wp mercatus seed:scale` data (PLAT-10), with and without a persistent cache. Fails the build when a query ceiling is exceeded; records and trends latency.
-  - **Layer 7, end-to-end & JS (`tests/EndToEnd/`, `tests/Js/`):** full API acceptance journeys, browser journeys for checkout, vendor order handling, completion and withdrawals, and JS unit tests for first-party UIs. JS unit tests use Jest and browser journeys use Playwright, both through `@wordpress/scripts` (ARCH-13).
+  - **Layer 7, end-to-end & JS (`tests/EndToEnd/`, `tests/Js/`):** full API acceptance journeys, browser journeys for checkout, vendor order handling, completion and withdrawals, and JS unit tests for first-party UIs. JS unit tests use Vitest, the runner `@wordpress/scripts` ships by default, and browser journeys use Playwright, both through `@wordpress/scripts` (ARCH-13).
 - **TEST-2 Generated security matrix.** The actor × resource × endpoint matrix is generated from the route registry, so every new route is covered automatically. It covers: IDOR/BOLA (vendor A against vendor B's store, products, offers, media, child orders, shipments, shipping zones, tax profile and rates, earnings and withdrawals → 404, SEC-4); privilege escalation and staff scope; mass-assignment fuzzing; missing nonce, idempotent replay and stale `If-Match` (→ 409); PII and secret redaction; rich-text and upload policy (SEC-7); vendors unable to edit products through the WooCommerce REST API (SEC-8).
 - **TEST-3 Module test matrix.** Every module ships with these test classes before its ticket can close, and tickets use the same class names. Three cross-cutting tests belong to a layer instead of a module: `DependencyRulesTest` (Layer 1), `OpenApiSchemaConformanceTest` (Layer 3) and `BaselineQueryAndLatencyGateTest` (Layer 6).
 
@@ -554,7 +554,7 @@ return new ModuleManifest(
   4. **Application:** commands, queries and policies, with unit tests.
   5. **API:** endpoints on the base REST controller, regenerated OpenAPI, contract tests and the generated security matrix (TEST-2).
   6. **WordPress and WooCommerce:** adapters and hooks.
-  7. **UI:** the module's screens (ARCH-13), with Jest and Playwright tests.
+  7. **UI:** the module's screens (ARCH-13), with Vitest and Playwright tests.
   8. **Scale:** the module's seeder slice and query ceilings, with and without a persistent cache (PLAT-10).
   9. **Done:** the module's TEST-3 row passes in CI, no guardrail in Section 2 is violated, and its decision file is marked implemented.
 - **ROAD-3 Module order.**
