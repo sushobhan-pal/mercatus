@@ -27,7 +27,7 @@ No routes. The OpenAPI generator (GW-8) runs against an empty route set until `c
 None.
 
 ## 6. UI
-None. `@wordpress/scripts` is installed and configured (GW-4) so `core.vendor` can build the dashboard shells.
+None. `@wordpress/scripts` is installed and configured (GW-4) so `core.vendor` can build the marketplace dashboard shell (ARCH-13).
 
 ## 7. Extension seams
 None beyond the contracts (GW-7).
