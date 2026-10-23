@@ -12,7 +12,7 @@ namespace Mercatus\Core\Kernel\Cli;
 use Mercatus\Core\Kernel\Kernel;
 
 /**
- * `wp mercatus migrate` applies pending migrations.
+ * `wp mercatus migrate` applies pending migrations; `wp mercatus outbox:work` drains the outbox once.
  */
 final class KernelCommand {
 
@@ -41,7 +41,19 @@ final class KernelCommand {
 			\WP_CLI::error( $module_id . ': migration ' . $version . ' failed.', false );
 		}
 		if ( $report->succeeded() ) {
+			Kernel::ensurePoller();
 			\WP_CLI::success( 'The Mercatus database is up to date.' );
 		}
+	}
+
+	/**
+	 * Handles waiting outbox events once, for sites that run a real cron instead of Action Scheduler's.
+	 */
+	public function work(): void {
+		$report = $this->kernel->poll();
+		if ( null === $report ) {
+			\WP_CLI::error( 'The outbox worker did not run.' );
+		}
+		\WP_CLI::success( sprintf( 'Handled %d, superseded %d, retried %d, failed %d.', $report->processed, $report->superseded, $report->retried, $report->failed ) );
 	}
 }

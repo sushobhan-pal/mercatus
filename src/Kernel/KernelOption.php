@@ -57,6 +57,26 @@ final class KernelOption implements ModuleStateStore {
 	}
 
 	/**
+	 * When the outbox poller last ran, for the health report.
+	 */
+	public function lastPoll(): ?int {
+		$time = $this->read()['last_poll'] ?? null;
+
+		return is_int( $time ) ? $time : null;
+	}
+
+	/**
+	 * Remembers when the outbox poller ran.
+	 *
+	 * @param int $time Unix time.
+	 */
+	public function recordPoll( int $time ): void {
+		$option              = $this->read();
+		$option['last_poll'] = $time;
+		update_option( self::NAME, $option, true );
+	}
+
+	/**
 	 * The option, created the first time it's missing so later boots find it among the autoloaded options.
 	 *
 	 * @return array<mixed>

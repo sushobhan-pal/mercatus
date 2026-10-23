@@ -11,6 +11,8 @@ namespace Mercatus\Core\Kernel\Modules;
 
 use Closure;
 use InvalidArgumentException;
+use Mercatus\Core\Contracts\Database\MigrationSource;
+use Mercatus\Core\Contracts\Events\EventSubscriber;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Contracts\Settings\SettingDefinition;
@@ -133,6 +135,14 @@ final class ModuleManifestValidator {
 		}
 		if ( null !== $manifest->hooks && ! is_a( $manifest->hooks, ModuleHooks::class, true ) ) {
 			return self::INVALID_CLASS;
+		}
+		if ( null !== $manifest->migrations && ! is_a( $manifest->migrations, MigrationSource::class, true ) ) {
+			return self::INVALID_CLASS;
+		}
+		foreach ( $manifest->eventSubscribers as $subscriber ) {
+			if ( ! is_a( $subscriber, EventSubscriber::class, true ) ) {
+				return self::INVALID_CLASS;
+			}
 		}
 		if ( null === $manifest->settings ) {
 			$settings[ $manifest->id ] = array();

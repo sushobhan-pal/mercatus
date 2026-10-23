@@ -76,6 +76,16 @@ final class Container {
 	}
 
 	/**
+	 * Whether a class or interface can be supplied: bound, or a concrete class to build. Unbound interfaces and
+	 * abstract classes fall back to the argument's default, when it has one.
+	 *
+	 * @param string $id Class or interface name.
+	 */
+	private function resolvable( string $id ): bool {
+		return isset( $this->instances[ $id ] ) || isset( $this->factories[ $id ] ) || ( class_exists( $id ) && ( new ReflectionClass( $id ) )->isInstantiable() );
+	}
+
+	/**
 	 * Builds a class by wiring its constructor.
 	 *
 	 * @param string $class_name Class name.
@@ -98,7 +108,7 @@ final class Container {
 		foreach ( $constructor->getParameters() as $parameter ) {
 			$type       = $parameter->getType();
 			$dependency = $type instanceof ReflectionNamedType && ! $type->isBuiltin() ? $type->getName() : '';
-			if ( class_exists( $dependency ) || interface_exists( $dependency ) ) {
+			if ( ( class_exists( $dependency ) || interface_exists( $dependency ) ) && $this->resolvable( $dependency ) ) {
 				$arguments[] = $this->get( $dependency );
 			} elseif ( $parameter->isDefaultValueAvailable() ) {
 				$arguments[] = $parameter->getDefaultValue();

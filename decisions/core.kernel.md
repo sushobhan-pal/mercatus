@@ -212,6 +212,17 @@ Unmet requirements, pending migrations and drifted migration checksums show as w
   - A failing statement stops that module. Its database error is suppressed, never printed into a page.
   - Boot compares each active module's newest migration file with the applied version kept in `mercatus_kernel`. A module that is behind is rejected with `pending_migrations` (fail closed), and administrators see an "Update database" notice. The notice's link is nonce-checked and needs `manage_woocommerce` until `core.identity` provides policies.
   - Migrations also run on activation, through `wp mercatus migrate`, and when an optional module is switched on (DATA-3's lazy migration).
+- **KER-21 Outbox, audit log and bridge (ticket 8).**
+  - In the shared kernel: `DomainEvent`, `EventLane`, `ActorRef`, `Uuid` (v7), and the ports `EventPublisher`, `TransactionRunner`, `AuditLog` and `ExecutionContext`.
+  - `EventSubscriber` is the contract for the classes a manifest's `eventSubscribers` lists. Event payloads hold no floats or objects, so they serialise exactly.
+  - A unit of work buffers events and audit records, and the transaction runner writes them just before the outermost commit. Nested runs use savepoints, and an inner rollback drops only its own records.
+  - After commit, the committing request claims its own critical events by UUID and dispatches them. Whatever fails waits for the poller.
+  - Claims set `claimed_by` and a 60-second lease. Finishing or releasing requires the same token, so a worker whose lease ran out can't touch rows another worker took over.
+  - Bulk events with the same coalesce key collapse into the newest; older ones become `superseded`.
+  - Failures retry after 30 s doubling to an hour, plus up to 10% jitter, and are `failed` after 10 attempts.
+  - The poller is one recurring Action Scheduler action (`mercatus_outbox_poll`, every minute). It runs as the system actor, and only while Action Scheduler is executing it or from WP-CLI. It also purges handled events after the outbox retention and, when switched on, old audit entries.
+  - The system actor exists only inside `runAsSystem()`; request input can't switch it on (TM-39).
+  - The integration tests run the transaction runner in savepoint mode, because each test already runs inside the WordPress test suite's transaction.
 
 ## 11. Open questions
 None. All six were answered on 2026-10-23 and are recorded as KER-11 and KER-13 to KER-17.

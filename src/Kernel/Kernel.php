@@ -11,7 +11,21 @@ namespace Mercatus\Core\Kernel;
 
 use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Cache\CoordinationPort;
+use Mercatus\Core\Contracts\Events\EventSubscriber;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
+use Mercatus\Core\Infrastructure\Audit\AuditStore;
+use Mercatus\Core\Infrastructure\Audit\BufferedAuditLog;
+use Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner;
+use Mercatus\Core\Infrastructure\Outbox\EventDispatcher;
+use Mercatus\Core\Infrastructure\Outbox\OutboxEventPublisher;
+use Mercatus\Core\Infrastructure\Outbox\OutboxStore;
+use Mercatus\Core\Infrastructure\Outbox\OutboxWorker;
+use Mercatus\Core\Kernel\Events\DomainEventActionBridge;
+use Mercatus\Core\Shared\Actor\ExecutionContext;
+use Mercatus\Core\Shared\Audit\AuditLog;
+use Mercatus\Core\Shared\Events\EventPublisher;
+use Mercatus\Core\Shared\Persistence\TransactionRunner;
+use DateInterval;
 use Mercatus\Core\Infrastructure\Cache\WpCachePort;
 use Mercatus\Core\Infrastructure\Cache\WpCoordinationPort;
 use Mercatus\Core\Contracts\Database\MigrationSource;
@@ -57,6 +71,13 @@ final class Kernel {
 	private array $candidates = array();
 
 	/**
+	 * Whether Action Scheduler is executing an action right now (KER-7, TM-39).
+	 */
+	private bool $inScheduler = false;
+
+	public const POLL_HOOK = 'mercatus_outbox_poll';
+
+	/**
 	 * Creates a kernel.
 	 *
 	 * @param Container $container Service container.
@@ -90,6 +111,23 @@ final class Kernel {
 		$kernel = self::create( MERCATUS_VERSION );
 		$kernel->start();
 		$kernel->migrate();
+		self::ensurePoller();
+	}
+
+	/**
+	 * Schedules the outbox poller once: one recurring Action Scheduler action, never one per event (G-DB-6).
+	 */
+	public static function ensurePoller(): void {
+		$schedule = static function (): void {
+			if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( self::POLL_HOOK ) ) {
+				as_schedule_recurring_action( time(), MINUTE_IN_SECONDS, self::POLL_HOOK, array(), 'mercatus', true );
+			}
+		};
+		if ( did_action( 'action_scheduler_init' ) ) {
+			$schedule();
+		} else {
+			add_action( 'action_scheduler_init', $schedule );
+		}
 	}
 
 	/**
@@ -111,6 +149,11 @@ final class Kernel {
 		// Built on first use, so boot itself never touches the cache (PLAT-3, KER-6).
 		$container->factory( CoordinationPort::class, static fn( Container $services ): CoordinationPort => new WpCoordinationPort( $services->get( Clock::class ) ) );
 		$container->factory( CachePort::class, static fn( Container $services ): CachePort => new WpCachePort( $services->get( Clock::class ), $services->get( CoordinationPort::class ) ) );
+		$container->factory( \wpdb::class, static fn(): \wpdb => $GLOBALS['wpdb'] );
+		$container->instance( ExecutionContext::class, new WordPressExecutionContext( $container->get( Clock::class ) ) );
+		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
+		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );
+		$container->factory( TransactionRunner::class, static fn( Container $services ): TransactionRunner => $services->get( WpdbTransactionRunner::class ) );
 		$option = new KernelOption();
 		$container->instance( KernelOption::class, $option );
 		$container->instance( ModuleStateStore::class, $option );
@@ -156,6 +199,7 @@ final class Kernel {
 			$settings->register( $module_id, $definitions );
 		}
 		$this->container->instance( FeatureManifest::class, ( new FeatureManifestCompiler() )->compile( $resolution->active ) );
+		$this->container->instance( EventDispatcher::class, new EventDispatcher( fn(): array => $this->subscribers( $resolution->active ) ) );
 
 		foreach ( $resolution->active as $manifest ) {
 			$hooks = null === $manifest->hooks ? null : $this->container->get( $manifest->hooks );
@@ -174,8 +218,14 @@ final class Kernel {
 		}
 
 		add_action( 'admin_post_mercatus_migrate', array( $this, 'handleMigrateRequest' ) );
+		add_action( self::POLL_HOOK, array( $this, 'runPoll' ) );
+		add_action( 'action_scheduler_begin_execute', array( $this, 'enterScheduler' ) );
+		add_action( 'action_scheduler_after_execute', array( $this, 'leaveScheduler' ) );
+		add_action( 'action_scheduler_failed_execute', array( $this, 'leaveScheduler' ) );
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'mercatus migrate', array( new KernelCommand( $this ), 'migrate' ) );
+			$command = new KernelCommand( $this );
+			\WP_CLI::add_command( 'mercatus migrate', array( $command, 'migrate' ) );
+			\WP_CLI::add_command( 'mercatus outbox:work', array( $command, 'work' ) );
 		}
 
 		$this->registry   = $registry;
@@ -190,6 +240,89 @@ final class Kernel {
 	}
 
 	/**
+	 * Drains the outbox and applies retention, as the system actor. Runs only when Action Scheduler executes it
+	 * or from WP-CLI; firing the hook from a request does nothing (TM-39).
+	 *
+	 * @return \Mercatus\Core\Infrastructure\Outbox\WorkReport|null The work done, or null when refused.
+	 */
+	public function poll(): ?\Mercatus\Core\Infrastructure\Outbox\WorkReport {
+		if ( ! $this->inScheduler && ! ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+			return null;
+		}
+		$context = $this->container->get( ExecutionContext::class );
+		if ( ! $context instanceof WordPressExecutionContext ) {
+			return null;
+		}
+
+		return $context->runAsSystem(
+			function (): \Mercatus\Core\Infrastructure\Outbox\WorkReport {
+				$report = $this->container->get( OutboxWorker::class )->work();
+				$this->applyRetention();
+				$this->container->get( KernelOption::class )->recordPoll( time() );
+
+				return $report;
+			}
+		);
+	}
+
+	/**
+	 * The poller's action callback.
+	 */
+	public function runPoll(): void {
+		$this->poll();
+	}
+
+	/**
+	 * Notes that Action Scheduler started executing an action.
+	 */
+	public function enterScheduler(): void {
+		$this->inScheduler = true;
+	}
+
+	/**
+	 * Notes that Action Scheduler finished executing an action.
+	 */
+	public function leaveScheduler(): void {
+		$this->inScheduler = false;
+	}
+
+	/**
+	 * Purges handled outbox rows past their retention and, when switched on, old audit entries (KER-15).
+	 */
+	private function applyRetention(): void {
+		$settings = $this->settings();
+		if ( ! $settings->has( KernelSettings::OUTBOX_RETENTION_DAYS ) ) {
+			return;
+		}
+		$now = $this->container->get( Clock::class )->now();
+		$this->container->get( OutboxStore::class )->purge( $now->sub( new DateInterval( 'P' . $settings->int( KernelSettings::OUTBOX_RETENTION_DAYS ) . 'D' ) ) );
+		$years = $settings->int( KernelSettings::AUDIT_PURGE_AFTER_YEARS );
+		if ( $years > 0 ) {
+			$this->container->get( AuditStore::class )->purge( $now->sub( new DateInterval( 'P' . $years . 'Y' ) ) );
+		}
+	}
+
+	/**
+	 * The WordPress bridge plus the active modules' subscribers.
+	 *
+	 * @param list<ModuleManifest> $active Active modules.
+	 * @return list<EventSubscriber>
+	 */
+	private function subscribers( array $active ): array {
+		$subscribers = array( new DomainEventActionBridge() );
+		foreach ( $active as $manifest ) {
+			foreach ( $manifest->eventSubscribers as $class_name ) {
+				$subscriber = $this->container->get( $class_name );
+				if ( $subscriber instanceof EventSubscriber ) {
+					$subscribers[] = $subscriber;
+				}
+			}
+		}
+
+		return $subscribers;
+	}
+
+	/**
 	 * Runs migrations from the admin notice's link, for administrators only.
 	 */
 	public function handleMigrateRequest(): void {
@@ -198,6 +331,7 @@ final class Kernel {
 			wp_die( esc_html__( 'You are not allowed to update the Mercatus database.', 'mercatus' ), '', array( 'response' => 403 ) );
 		}
 		$this->migrate();
+		self::ensurePoller();
 		wp_safe_redirect( admin_url() );
 		exit;
 	}
