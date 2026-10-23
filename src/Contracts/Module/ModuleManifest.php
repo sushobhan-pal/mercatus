@@ -34,6 +34,8 @@ final readonly class ModuleManifest {
 	 * @param class-string|null     $dashboardMenu    The module's dashboard menu items and screens (ARCH-13).
 	 * @param list<class-string>    $eventSubscribers Domain-event subscribers.
 	 * @param list<class-string>    $healthChecks     Health checks reported by GET /health.
+	 * @param class-string|null     $settings         Declares the module's settings (a `SettingsProvider`).
+	 * @param class-string|null     $hooks            Attaches the module's WordPress hooks while it's active (`ModuleHooks`).
 	 * @throws InvalidArgumentException When the ID, version or a requirement is malformed.
 	 */
 	public function __construct(
@@ -47,6 +49,8 @@ final readonly class ModuleManifest {
 		public ?string $dashboardMenu = null,
 		public array $eventSubscribers = array(),
 		public array $healthChecks = array(),
+		public ?string $settings = null,
+		public ?string $hooks = null,
 	) {
 		if ( 1 !== preg_match( self::ID_PATTERN, $id ) ) {
 			throw new InvalidArgumentException( 'A module ID is core.<name> or pro.<name>, lower case.' );

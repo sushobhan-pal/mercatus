@@ -26,6 +26,8 @@ tests_add_filter(
 	'muplugins_loaded',
 	static function (): void {
 		require_once WP_PLUGIN_DIR . '/woocommerce/woocommerce.php';
+		// Mercatus checks HPOS when it boots on plugins_loaded (PLAT-1), before WooCommerce is installed below.
+		update_option( CustomOrdersTableController::CUSTOM_ORDERS_TABLE_USAGE_ENABLED_OPTION, 'yes' );
 		require_once dirname( __DIR__ ) . '/mercatus.php';
 	}
 );

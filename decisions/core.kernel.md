@@ -43,14 +43,14 @@ Local IDs use the code `KER`.
 
 ## 3. Settings
 The kernel's own settings, changed by an administrator only:
-- `kernel.outbox_retention_days`: days processed outbox rows are kept. Default 7.
-- `kernel.audit_purge_after_years`: delete audit entries older than this many years. Default: off, so entries are kept forever (KER-15).
-- `kernel.remove_data_on_uninstall`: remove all Mercatus data when the plugin is deleted. Default: off (KER-16).
+- `core.kernel.outbox_retention_days`: days processed outbox rows are kept. Default 7.
+- `core.kernel.audit_purge_after_years`: delete audit entries older than this many years. Default: off, so entries are kept forever (KER-15).
+- `core.kernel.remove_data_on_uninstall`: remove all Mercatus data when the plugin is deleted. Default: off (KER-16).
 
 The registry itself is KER-4.
 
 ## 4. API
-Routes go through the kernel's route registrar, and each declares the Groundwork route metadata (`'mercatus' => array( 'access' => … )`). Until `core.identity` exists, non-public routes fail closed (KER-11). Paths follow API-2.
+Routes go through the kernel's route registrar, and each declares the Groundwork route metadata (`'mercatus' => array( 'access' => … )`). Until `core.identity` exists, non-public routes fail closed (KER-11). Paths follow API-2. Ticket 6 builds the services behind these routes; the registrar and the routes follow once the cache (ticket 7) and the outbox (ticket 8) exist, since `/health` and cache flushing need them.
 - `GET /features`: `public`. Module IDs and the features they provide; module versions only for administrators.
 - `GET /health`: `admin`. Requirements, persistent cache present or absent, rate limiting on or off (PLAT-8), migrations pending or drifted, outbox backlog and failed events, the Action Scheduler heartbeat, and each module's health checks.
 - `POST /system/cache/flush-group`: `admin`. Bumps a group's revision (PLAT-5). It changes no money or stock, so it needs no `Idempotency-Key`; repeating it is harmless.
@@ -179,9 +179,9 @@ Unmet requirements, pending migrations and drifted migration checksums show as w
   - Switching a module off keeps its data and leaves zero footprint: no hooks, routes, menu items or queries (ARCH-6). Switching it back on resumes.
   - With Shipping off, Mercatus adds no vendor shipping, and WooCommerce's own shipping settings, if any, apply. `core.orders` and `core.tax` must handle orders without vendor shipping packages, and their decision files cover it.
   - Master v2.7 records the optional modules in ARCH-6 and the Modules endpoints in API-2.
-- **KER-15 Audit-log retention (OQ-4).** Entries are kept forever by default. The `kernel.audit_purge_after_years` setting deletes older entries in daily batches, and it is off by default. Ledger entries are never purged; they aren't part of the audit log.
+- **KER-15 Audit-log retention (OQ-4).** Entries are kept forever by default. The `core.kernel.audit_purge_after_years` setting deletes older entries in daily batches, and it is off by default. Ledger entries are never purged; they aren't part of the audit log.
 - **KER-16 Uninstall (OQ-5).**
-  - Deleting the plugin removes nothing unless `kernel.remove_data_on_uninstall` is on. This works like WooCommerce's `WC_REMOVE_ALL_DATA`, but as a setting.
+  - Deleting the plugin removes nothing unless `core.kernel.remove_data_on_uninstall` is on. This works like WooCommerce's `WC_REMOVE_ALL_DATA`, but as a setting.
   - When it is on, `uninstall.php` drops every `wp_mercatus_*` table, every `mercatus_*` option and Mercatus's Action Scheduler actions.
   - The setting's description warns that vendor balances and order splits go with them.
 - **KER-17 CI schedule (OQ-6).**
@@ -189,6 +189,13 @@ Unmet requirements, pending migrations and drifted migration checksums show as w
   - The scale suite runs weekly, on demand (`workflow_dispatch`), and on pull requests labelled `scale`, instead of nightly.
   - This keeps GitHub Free's minutes in budget: about 37 billed minutes per full run against 2,000 a month. Revisit when the Core repository goes public, since public repositories get free minutes.
   - Master v2.7 changes PLAT-10, TEST-1 Layer 6 and TEST-4, and GW-6 changes to match.
+- **KER-18 Contract additions and settings details (ticket 6).**
+  - Additive, so a minor version (ARCH-6): `ModuleManifest` gains optional `settings` (a `SettingsProvider`) and `hooks` (`ModuleHooks`). `hooks` is the only place a module attaches WordPress hooks, which is how a switched-off module stays hook-free.
+  - New contracts: `ModuleRegistrar` (KER-13), `ModuleHooks`, `SettingsProvider`, `SettingDefinition` and `SettingType`.
+  - Setting keys start with the full module ID, for example `core.kernel.outbox_retention_days`, so keys never collide between Core and Pro.
+  - A module's settings record is loaded when its settings are registered at boot. The first boot creates it; later boots read it from autoloaded options without a query.
+  - Version constraints use Composer's syntax, ignoring pre-release suffixes, through the kernel's own small parser, so Mercatus ships no extra runtime library.
+  - Errors are `DomainError` codes in the shared kernel (ARCH-7). PHPCS's exception-escaping sniff is off because Mercatus never prints exception messages.
 
 ## 11. Open questions
 None. All six were answered on 2026-10-23 and are recorded as KER-11 and KER-13 to KER-17.

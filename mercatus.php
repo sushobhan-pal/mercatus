@@ -32,6 +32,11 @@ if ( is_readable( $mercatus_autoloader ) ) {
 }
 unset( $mercatus_autoloader );
 
+// The kernel boots once WooCommerce has loaded (KER-1).
+if ( class_exists( \Mercatus\Core\Kernel\Kernel::class ) ) {
+	add_action( 'plugins_loaded', array( \Mercatus\Core\Kernel\Kernel::class, 'boot' ) );
+}
+
 // HPOS is mandatory (PLAT-1).
 add_action(
 	'before_woocommerce_init',

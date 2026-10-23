@@ -20,6 +20,8 @@ use Mercatus\Core\Contracts\Orders\VendorOrderCompletionState;
 use Mercatus\Core\Contracts\Payouts\PayoutInstruction;
 use Mercatus\Core\Contracts\Payouts\PayoutResult;
 use Mercatus\Core\Contracts\Payouts\PayoutStatus;
+use Mercatus\Core\Contracts\Settings\SettingDefinition;
+use Mercatus\Core\Contracts\Settings\SettingType;
 use Mercatus\Core\Contracts\Tax\FulfilmentMethod;
 use Mercatus\Core\Contracts\Tax\TaxAddress;
 use Mercatus\Core\Contracts\Tax\TaxAmount;
@@ -73,6 +75,12 @@ final class ContractValueObjectsTest extends TestCase {
 			'failed payout without a code'            => array( static fn() => new PayoutResult( PayoutStatus::Failed, 'po_1' ) ),
 			'paid payout with a failure code'         => array( static fn() => new PayoutResult( PayoutStatus::Paid, 'po_1', 'account_closed' ) ),
 			'payout result without a reference'       => array( static fn() => new PayoutResult( PayoutStatus::Pending, '' ) ),
+			'setting key without a module'            => array( static fn() => new SettingDefinition( 'retention_days', SettingType::Integer, 7 ) ),
+			'choice setting without choices'          => array( static fn() => new SettingDefinition( 'core.kernel.mode', SettingType::Choice, 'a' ) ),
+			'choices on a text setting'               => array( static fn() => new SettingDefinition( 'core.kernel.label', SettingType::Text, 'a', array( 'a' ) ) ),
+			'limits on a boolean setting'             => array( static fn() => new SettingDefinition( 'core.kernel.flag', SettingType::Boolean, false, minimum: 0 ) ),
+			'setting minimum above maximum'           => array( static fn() => new SettingDefinition( 'core.kernel.days', SettingType::Integer, 5, minimum: 10, maximum: 1 ) ),
+			'setting default outside its limits'      => array( static fn() => new SettingDefinition( 'core.kernel.days', SettingType::Integer, 0, minimum: 1 ) ),
 			'catalog page of 0'                       => array( static fn() => new CatalogQuery( perPage: 0 ) ),
 			'catalog page above the maximum'          => array( static fn() => new CatalogQuery( perPage: CatalogQuery::MAX_PER_PAGE + 1 ) ),
 		);

@@ -35,6 +35,21 @@
 		<exclude-pattern>tests/bootstrap-integration.php</exclude-pattern>
 	</rule>
 
+	<!-- Mercatus never prints exception messages: they are fixed strings or error codes, context travels in
+	     DomainError's details, and the API layer turns codes into translated messages (ARCH-7, API-1). -->
+	<rule ref="WordPress.Security.EscapeOutput">
+		<exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
+	</rule>
+
+	<!-- WooCommerce's own capabilities. -->
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="manage_woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">
