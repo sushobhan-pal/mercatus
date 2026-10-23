@@ -13,7 +13,7 @@ use Mercatus\Core\Kernel\Modules\ModuleStateStore;
 
 /**
  * `mercatus_kernel`, autoloaded and small, so boot needs no query of its own. It holds the admin's module
- * choices; later tickets add the applied migration versions.
+ * choices and the latest applied migration version of each module (KER-5).
  */
 final class KernelOption implements ModuleStateStore {
 
@@ -28,6 +28,31 @@ final class KernelOption implements ModuleStateStore {
 	public function save( array $states ): void {
 		$option            = $this->read();
 		$option['modules'] = $states;
+		update_option( self::NAME, $option, true );
+	}
+
+	/**
+	 * The latest applied migration version of each module.
+	 *
+	 * @return array<string, int>
+	 */
+	public function migrations(): array {
+		$migrations = $this->read()['migrations'] ?? array();
+
+		return is_array( $migrations ) ? array_map( 'intval', array_filter( $migrations, 'is_numeric' ) ) : array();
+	}
+
+	/**
+	 * Remembers a module's latest applied migration version.
+	 *
+	 * @param string $module_id Module ID.
+	 * @param int    $version   Latest applied version.
+	 */
+	public function recordMigration( string $module_id, int $version ): void {
+		$option                   = $this->read();
+		$migrations               = is_array( $option['migrations'] ?? null ) ? $option['migrations'] : array();
+		$migrations[ $module_id ] = $version;
+		$option['migrations']     = $migrations;
 		update_option( self::NAME, $option, true );
 	}
 

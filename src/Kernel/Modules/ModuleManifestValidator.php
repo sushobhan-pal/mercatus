@@ -34,6 +34,7 @@ final class ModuleManifestValidator {
 	public const INCOMPATIBLE_DEPENDENCY = 'incompatible_dependency';
 	public const DUPLICATE_FEATURE       = 'duplicate_feature';
 	public const DEPENDENCY_CYCLE        = 'dependency_cycle';
+	public const PENDING_MIGRATIONS      = 'pending_migrations';
 
 	/**
 	 * Builds a class named in a manifest.
@@ -64,8 +65,9 @@ final class ModuleManifestValidator {
 	 *
 	 * @param list<RegisteredModule> $modules Every registered module, Core's first.
 	 * @param array<string, bool>    $states  The admin's on/off choices for optional modules.
+	 * @param array<string, string>  $blocked Reason by module ID for modules that must not load this time, such as pending migrations.
 	 */
-	public function resolve( array $modules, array $states ): ModuleResolution {
+	public function resolve( array $modules, array $states, array $blocked = array() ): ModuleResolution {
 		$rejected         = array();
 		$inactive         = array();
 		$wanted           = array();
@@ -88,7 +90,7 @@ final class ModuleManifestValidator {
 
 		$settings = array();
 		foreach ( $wanted as $id => $manifest ) {
-			$problem = $this->ownProblem( $manifest, $settings );
+			$problem = $blocked[ $id ] ?? $this->ownProblem( $manifest, $settings );
 			if ( null !== $problem ) {
 				$rejected[ $id ] = $problem;
 			}

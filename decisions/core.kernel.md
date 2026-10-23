@@ -205,6 +205,13 @@ Unmet requirements, pending migrations and drifted migration checksums show as w
   - `VersionedCacheKeyResolver` and `Revision` build PLAT-5 keys and hash long or unsafe ones.
   - Integration tests for one backend carry a `cache-<mode>` group, and the runner leaves out the other backends' groups.
   - `CacheFlushAuthorizationTest` comes with the cache-flush route in ticket 8.
+- **KER-20 Migrations (ticket 8).**
+  - New contracts (additive): `Migration` (one `up()` per file), `MigrationContext` (prefixed table names, the site's charset and collation, statements) and `MigrationSource` (the folder a manifest's `migrations` class points to).
+  - Files are `NNNN_short_description.php` and return a `Migration`. They should be safe to repeat (`CREATE TABLE IF NOT EXISTS`).
+  - The runner creates `schema_versions` itself, then holds a lock row (module `_lock`, version 0) that it treats as abandoned after ten minutes. It checks applied checksums before applying anything new.
+  - A failing statement stops that module. Its database error is suppressed, never printed into a page.
+  - Boot compares each active module's newest migration file with the applied version kept in `mercatus_kernel`. A module that is behind is rejected with `pending_migrations` (fail closed), and administrators see an "Update database" notice. The notice's link is nonce-checked and needs `manage_woocommerce` until `core.identity` provides policies.
+  - Migrations also run on activation, through `wp mercatus migrate`, and when an optional module is switched on (DATA-3's lazy migration).
 
 ## 11. Open questions
 None. All six were answered on 2026-10-23 and are recorded as KER-11 and KER-13 to KER-17.

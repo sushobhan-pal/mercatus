@@ -4,6 +4,7 @@
 
 	<file>mercatus.php</file>
 	<file>src</file>
+	<file>database</file>
 	<file>tests</file>
 
 	<!-- Fixtures break the rules on purpose so DependencyRulesTest can prove it catches them. -->

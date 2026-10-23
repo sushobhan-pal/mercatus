@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Kernel\Modules;
 
+use Closure;
 use Mercatus\Core\Shared\Errors\DomainError;
 
 /**
@@ -21,10 +22,11 @@ final class ModuleActivation {
 	/**
 	 * Creates the service.
 	 *
-	 * @param ModuleRegistry   $registry Registered modules.
-	 * @param ModuleStateStore $store    The admin's choices.
+	 * @param ModuleRegistry              $registry    Registered modules.
+	 * @param ModuleStateStore            $store       The admin's choices.
+	 * @param (Closure(string): void)|null $onActivated Runs after a module is switched on, for example to create its tables (DATA-3).
 	 */
-	public function __construct( private ModuleRegistry $registry, private ModuleStateStore $store ) {}
+	public function __construct( private ModuleRegistry $registry, private ModuleStateStore $store, private ?Closure $onActivated = null ) {}
 
 	/**
 	 * Optional modules for the Modules screen, in registration order.
@@ -69,6 +71,9 @@ final class ModuleActivation {
 		}
 		$states[ $id ] = true;
 		$this->store->save( $states );
+		if ( null !== $this->onActivated ) {
+			( $this->onActivated )( $id );
+		}
 	}
 
 	/**

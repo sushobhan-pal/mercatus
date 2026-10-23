@@ -44,6 +44,9 @@ tests_add_filter(
 			$synchronizer->create_database_tables();
 		}
 		update_option( CustomOrdersTableController::CUSTOM_ORDERS_TABLE_USAGE_ENABLED_OPTION, 'yes' );
+
+		// Creates Mercatus's tables the way plugin activation does (KER-5).
+		\Mercatus\Core\Kernel\Kernel::activate();
 	}
 );
 
