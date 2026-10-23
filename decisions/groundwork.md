@@ -1,6 +1,6 @@
 # `groundwork` — Decision File
 
-**Status:** Draft, open questions resolved (2026-10-23); awaiting approval
+**Status:** Approved (2026-10-23)
 **Phase / position:** Phase 0, module 0 in ROAD-3
 **Branch:** `groundwork`
 **Depends on:** nothing
