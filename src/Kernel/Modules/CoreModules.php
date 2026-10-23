@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Kernel\Modules;
 
 use Mercatus\Core\Contracts\Module\ModuleManifest;
+use Mercatus\Core\Kernel\Http\KernelRoutes;
 use Mercatus\Core\Kernel\KernelMigrations;
 use Mercatus\Core\Kernel\KernelSettings;
 
@@ -26,7 +27,7 @@ final class CoreModules {
 	 */
 	public static function all( string $version ): array {
 		return array(
-			new RegisteredModule( new ModuleManifest( id: 'core.kernel', version: $version, migrations: KernelMigrations::class, settings: KernelSettings::class ), false, true ),
+			new RegisteredModule( new ModuleManifest( id: 'core.kernel', version: $version, routes: KernelRoutes::class, migrations: KernelMigrations::class, settings: KernelSettings::class ), false, true ),
 		);
 	}
 }

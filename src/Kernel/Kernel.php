@@ -21,6 +21,10 @@ use Mercatus\Core\Infrastructure\Outbox\OutboxEventPublisher;
 use Mercatus\Core\Infrastructure\Outbox\OutboxStore;
 use Mercatus\Core\Infrastructure\Outbox\OutboxWorker;
 use Mercatus\Core\Kernel\Events\DomainEventActionBridge;
+use Mercatus\Core\Contracts\Http\RouteProvider;
+use Mercatus\Core\Kernel\Http\AccessGate;
+use Mercatus\Core\Kernel\Http\FailClosedAccessGate;
+use Mercatus\Core\Kernel\Http\WordPressRouteRegistrar;
 use Mercatus\Core\Shared\Actor\ExecutionContext;
 use Mercatus\Core\Shared\Audit\AuditLog;
 use Mercatus\Core\Shared\Events\EventPublisher;
@@ -151,6 +155,8 @@ final class Kernel {
 		$container->factory( CachePort::class, static fn( Container $services ): CachePort => new WpCachePort( $services->get( Clock::class ), $services->get( CoordinationPort::class ) ) );
 		$container->factory( \wpdb::class, static fn(): \wpdb => $GLOBALS['wpdb'] );
 		$container->instance( ExecutionContext::class, new WordPressExecutionContext( $container->get( Clock::class ) ) );
+		// core.identity replaces the gate with its policy pipeline (KER-11).
+		$container->instance( AccessGate::class, new FailClosedAccessGate() );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
 		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );
 		$container->factory( TransactionRunner::class, static fn( Container $services ): TransactionRunner => $services->get( WpdbTransactionRunner::class ) );
@@ -217,6 +223,21 @@ final class Kernel {
 			self::notice( array( sprintf( __( 'Mercatus could not load these modules: %s.', 'mercatus' ), implode( ', ', $names ) ) ) );
 		}
 
+		$this->registry   = $registry;
+		$this->resolution = $resolution;
+
+		// Only the site's booted kernel owns routes, the poller and admin and CLI commands; kernels made for
+		// activation or tests load modules without them.
+		if ( self::$instance === $this ) {
+			$this->attachSiteHooks();
+		}
+	}
+
+	/**
+	 * Hooks that belong to the site's one kernel.
+	 */
+	private function attachSiteHooks(): void {
+		add_action( 'rest_api_init', array( $this, 'registerRoutes' ) );
 		add_action( 'admin_post_mercatus_migrate', array( $this, 'handleMigrateRequest' ) );
 		add_action( self::POLL_HOOK, array( $this, 'runPoll' ) );
 		add_action( 'action_scheduler_begin_execute', array( $this, 'enterScheduler' ) );
@@ -227,9 +248,40 @@ final class Kernel {
 			\WP_CLI::add_command( 'mercatus migrate', array( $command, 'migrate' ) );
 			\WP_CLI::add_command( 'mercatus outbox:work', array( $command, 'work' ) );
 		}
+	}
 
-		$this->registry   = $registry;
-		$this->resolution = $resolution;
+	/**
+	 * Registers the active modules' routes through the registrar (ARCH-8 point 4).
+	 */
+	public function registerRoutes(): void {
+		$registrar = $this->container->get( WordPressRouteRegistrar::class );
+		foreach ( $this->resolution()->active as $manifest ) {
+			$provider = null === $manifest->routes ? null : $this->container->get( $manifest->routes );
+			if ( $provider instanceof RouteProvider ) {
+				$provider->routes( $registrar );
+			}
+		}
+	}
+
+	/**
+	 * Switches an optional module and records it (core.kernel §5, KER-9). The switch and its migrations run
+	 * first, because DDL would commit an open transaction; the event and the audit entry follow.
+	 *
+	 * @param string $module_id Module ID.
+	 * @param bool   $on        Whether to switch it on.
+	 * @throws \Mercatus\Core\Shared\Errors\DomainError When the switch is refused.
+	 */
+	public function switchModule( string $module_id, bool $on ): void {
+		$activation = $this->activation();
+		$on ? $activation->activate( $module_id ) : $activation->deactivate( $module_id );
+
+		$this->container->get( TransactionRunner::class )->run(
+			function () use ( $module_id, $on ): void {
+				$change = $on ? 'activated' : 'deactivated';
+				$this->container->get( EventPublisher::class )->publish( 'kernel.module.' . $change, 'module', $module_id, 0, array( 'module' => $module_id ) );
+				$this->container->get( AuditLog::class )->record( 'module.' . $change, 'module', $module_id, array( 'active' => $on ) );
+			}
+		);
 	}
 
 	/**

@@ -11,7 +11,269 @@ info:
 servers:
   -
     url: /wp-json/mercatus/v1
-paths: {  }
+paths:
+  /features:
+    get:
+      operationId: getFeatures
+      summary: 'Active modules and their features'
+      tags:
+        - features
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        version:
+                          type: string
+                      required:
+                        - id
+                  features:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - modules
+                  - features
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security: []
+      x-mercatus-access: public
+      x-mercatus-resource: feature
+  /health:
+    get:
+      operationId: getHealth
+      summary: 'Health report'
+      tags:
+        - health
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ok
+                      - warning
+                      - error
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - ok
+                            - warning
+                            - error
+                        code:
+                          type: string
+                        details:
+                          type: object
+                      required:
+                        - id
+                        - status
+                        - code
+                        - details
+                required:
+                  - status
+                  - checks
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-resource: health
+  /modules:
+    get:
+      operationId: getModules
+      summary: 'Optional modules and their state'
+      tags:
+        - modules
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        version:
+                          type: string
+                        active:
+                          type: boolean
+                      required:
+                        - id
+                        - version
+                        - active
+                required:
+                  - modules
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-resource: module
+  '/modules/{id}/activate':
+    post:
+      operationId: postModulesIdActivate
+      summary: 'Switch an optional module on'
+      tags:
+        - modules
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          description: 'Module ID.'
+          schema:
+            type: string
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  active:
+                    type: boolean
+                required:
+                  - id
+                  - active
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-resource: module
+  '/modules/{id}/deactivate':
+    post:
+      operationId: postModulesIdDeactivate
+      summary: 'Switch an optional module off'
+      tags:
+        - modules
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          description: 'Module ID.'
+          schema:
+            type: string
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  active:
+                    type: boolean
+                required:
+                  - id
+                  - active
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-resource: module
+  /system/cache/flush-group:
+    post:
+      operationId: postSystemCacheFlushGroup
+      summary: 'Clear a cache group'
+      tags:
+        - system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                group:
+                  type: string
+                  description: 'Cache group, for example mercatus_stores.'
+                  pattern: '^mercatus_[a-z_]+$'
+              required:
+                - group
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  group:
+                    type: string
+                  flushed:
+                    type: boolean
+                required:
+                  - group
+                  - flushed
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-resource: cache_group
 components:
   schemas:
     Error:

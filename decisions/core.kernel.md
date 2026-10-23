@@ -223,6 +223,15 @@ Unmet requirements, pending migrations and drifted migration checksums show as w
   - The poller is one recurring Action Scheduler action (`mercatus_outbox_poll`, every minute). It runs as the system actor, and only while Action Scheduler is executing it or from WP-CLI. It also purges handled events after the outbox retention and, when switched on, old audit entries.
   - The system actor exists only inside `runAsSystem()`; request input can't switch it on (TM-39).
   - The integration tests run the transaction runner in savepoint mode, because each test already runs inside the WordPress test suite's transaction.
+- **KER-22 Routes, health and module switches (ticket 8).**
+  - In the contracts: `RouteProvider`, `RouteRegistrar` and `Access` (`public`, `authenticated`, `tenant`, `admin`), and `HealthCheck`, `HealthResult` and `HealthStatus`. The manifest validator rejects a `routes`, `migrations`, `eventSubscribers` or `healthChecks` class that doesn't implement its contract.
+  - The registrar works under `mercatus/v1`. It refuses, and reports, an endpoint with no or an unknown access level, one that brings its own `permission_callback`, one without a callback, and a route that is empty or doesn't start with `/`. It sets the permission callback from the access gate.
+  - Until `core.identity` adds its policies, the gate allows `public` endpoints only: visitors get 401 `mercatus_unauthenticated`, signed-in users, administrators included, 403 `mercatus_forbidden` (KER-11).
+  - The kernel's routes: `GET /features` (public; module versions only for callers the gate allows as admin), `GET /health`, `GET /modules`, `POST /modules/{id}/activate` and `/deactivate`, and `POST /system/cache/flush-group` (all admin). Domain errors map to statuses: unknown module or setting 404; an always-on module or a dependency conflict 409; an invalid setting 422.
+  - `/health` reports the cache backend, loaded and rejected modules, pending migrations, refused routes, the poller (warning after 10 minutes without a run) and the outbox (warning on failed events or a pending event older than 15 minutes), followed by each module's own health checks.
+  - Switching a module publishes `kernel.module.activated` or `.deactivated` and writes a `module.activated` or `.deactivated` audit entry in one transaction. A refused switch records nothing.
+  - Only the kernel that `Kernel::activate()` booted attaches site hooks (REST routes, the poller, the admin migrate action, WP-CLI), so kernels that tests create don't add listeners.
+  - The integration bootstrap runs `Kernel::activate()` at `plugins_loaded` priority 5 instead of at `setup_theme`, so the tables exist before the site's kernel boots at the default priority and registers its routes. The committed OpenAPI file now documents the kernel's routes.
 
 ## 11. Open questions
 None. All six were answered on 2026-10-23 and are recorded as KER-11 and KER-13 to KER-17.

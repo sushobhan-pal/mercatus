@@ -13,6 +13,8 @@ use Closure;
 use InvalidArgumentException;
 use Mercatus\Core\Contracts\Database\MigrationSource;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
+use Mercatus\Core\Contracts\Health\HealthCheck;
+use Mercatus\Core\Contracts\Http\RouteProvider;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Contracts\Settings\SettingDefinition;
@@ -139,8 +141,16 @@ final class ModuleManifestValidator {
 		if ( null !== $manifest->migrations && ! is_a( $manifest->migrations, MigrationSource::class, true ) ) {
 			return self::INVALID_CLASS;
 		}
+		if ( null !== $manifest->routes && ! is_a( $manifest->routes, RouteProvider::class, true ) ) {
+			return self::INVALID_CLASS;
+		}
 		foreach ( $manifest->eventSubscribers as $subscriber ) {
 			if ( ! is_a( $subscriber, EventSubscriber::class, true ) ) {
+				return self::INVALID_CLASS;
+			}
+		}
+		foreach ( $manifest->healthChecks as $check ) {
+			if ( ! is_a( $check, HealthCheck::class, true ) ) {
 				return self::INVALID_CLASS;
 			}
 		}

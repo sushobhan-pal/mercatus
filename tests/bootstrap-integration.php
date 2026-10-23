@@ -44,10 +44,17 @@ tests_add_filter(
 			$synchronizer->create_database_tables();
 		}
 		update_option( CustomOrdersTableController::CUSTOM_ORDERS_TABLE_USAGE_ENABLED_OPTION, 'yes' );
-
-		// Creates Mercatus's tables the way plugin activation does (KER-5).
-		\Mercatus\Core\Kernel\Kernel::activate();
 	}
+);
+
+// Creates Mercatus's tables the way plugin activation does (KER-5): after WooCommerce has loaded, before the
+// site's kernel boots on plugins_loaded, so the kernel starts with its tables in place.
+tests_add_filter(
+	'plugins_loaded',
+	static function (): void {
+		\Mercatus\Core\Kernel\Kernel::activate();
+	},
+	5
 );
 
 require_once $mercatus_tests_dir . '/includes/bootstrap.php';
