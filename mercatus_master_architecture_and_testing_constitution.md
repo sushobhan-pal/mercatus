@@ -1,6 +1,6 @@
 # Mercatus — Master Architecture, Decisions & Testing Constitution
 
-**Version:** 2.2, frozen 2026-10-23.
+**Version:** 2.4, frozen 2026-10-23.
 **Scope:** the single source of truth for **Mercatus** (free) and **Mercatus Pro**: product decisions, architecture, data model, security, testing and roadmap.
 **Change control:** this document is frozen. A change needs the product owner's approval, is made directly in the section it belongs to, and raises the version. The previous version is archived in `archive/`.
 
@@ -36,7 +36,7 @@ A reviewer, human or AI, **MUST REJECT** a pull request, commit or generated cha
    - **G-BND-1** A REST controller contains business rules, state transitions, or direct `$wpdb`/SQL instead of delegating to an Application Command or Query.
    - **G-BND-2** Domain or Application code reads `$_POST`, `$_GET`, `$_REQUEST` or `$_SERVER`, calls `wp_send_json*()`, outputs HTML, or calls WordPress translation functions (ARCH-7).
    - **G-BND-3** Any class in `Mercatus\Core\` references a class in `Mercatus\Pro\`.
-   - **G-BND-4** Any class in `Mercatus\Pro\` references `Mercatus\Core\Internal\*`, queries or alters a table owned by Core or another Pro module, or reads private options instead of using `Mercatus\Core\Contracts\*` (PRO-1).
+   - **G-BND-4** Any class in `Mercatus\Pro\` references a Core class outside `Mercatus\Core\Contracts\*` and the shared kernel `Mercatus\Core\Shared\*` (ARCH-4), queries or alters a table owned by Core or another Pro module, or reads private options instead of using those published APIs (PRO-1).
    - **G-BND-5** An in-process component (block, SSR template, WooCommerce hook, CLI command, queue worker) makes an HTTP loopback call to `/wp-json/mercatus/v1` instead of calling the Application layer directly (ARCH-9).
    - **G-BND-6** A database transaction wraps WooCommerce CRUD writes (ARCH-10).
    - **G-BND-7** A module rebuilds something WooCommerce already provides: the cart and checkout API, emails, the order-pay page, the shipping method API, or tax maths (ARCH-12).
@@ -160,7 +160,7 @@ Browser / Mobile / Partner Client / SSR Block
 ```
 
 - **ARCH-2 Module layout.** Every module is laid out as `{Module}/{Domain,Application,Infrastructure,Api}`, and Deptrac enforces the layers.
-- **ARCH-3 Repositories and directories.** Two distributions, `mercatus` and `mercatus-pro`, with a contract package generated from Core:
+- **ARCH-3 Repositories and directories.** Two distributions, `mercatus` and `mercatus-pro`, with a contract package (the contracts and the shared kernel) generated from Core:
 
 ```text
 mercatus/
@@ -172,10 +172,10 @@ mercatus/
   phpunit.xml.dist
   src/
     Kernel/                 # boot, module registry, config, typed settings registry, migration runner
-    Shared/                 # shared kernel (DRY-2)
+    Shared/                 # shared kernel (DRY-2), published to Pro, semantic-versioned
     Contracts/              # public SDK, semantic-versioned: ModuleManifest, CachePort, CoordinationPort,
                             #   TaxRateResolver, StoreTaxPolicy, CommissionRuleSource, OrderCompletionPolicy,
-                            #   ChildOrderExposure, PayoutProvider, CatalogSearchPort
+                            #   CompletionTrigger, ChildOrderExposure, PayoutProvider, CatalogSearchPort
     Identity/               # actors, capabilities, policies, API clients
     Vendor/                 # vendor lifecycle and assignments
     Store/                  # profile, visibility, public storefront data
@@ -229,9 +229,9 @@ mercatus-pro/
     Architecture/ Unit/ Contract/ Integration/ Security/ Scale/ EndToEnd/
 ```
 
-- **ARCH-4 Packaging and naming.** Composer PSR-4 autoloading with prefixes `Mercatus\Core\` and `Mercatus\Pro\`. Third-party PHP libraries are prefixed with Strauss or PHP-Scoper. Pro builds against Core's contracts but does not ship them. Global singletons are avoided except a minimal `mercatus()` facade that returns public interfaces. Plugin slugs are `mercatus` and `mercatus-pro`; the REST namespace is `/wp-json/mercatus/v1`; tables are `wp_mercatus_*` (Core) and `wp_mercatus_pro_*` (Pro); every public function, option, transient, cache group, hook and capability name starts with `mercatus`.
+- **ARCH-4 Packaging and naming.** Composer PSR-4 autoloading with prefixes `Mercatus\Core\` and `Mercatus\Pro\`. Third-party PHP libraries are prefixed with Strauss or PHP-Scoper. Pro builds against Core's published code, the contracts (`Mercatus\Core\Contracts\*`) and the shared kernel (`Mercatus\Core\Shared\*`), but ships neither; every other Core namespace is internal to Core. Global singletons are avoided except a minimal `mercatus()` facade that returns public interfaces. Plugin slugs are `mercatus` and `mercatus-pro`; the REST namespace is `/wp-json/mercatus/v1`; tables are `wp_mercatus_*` (Core) and `wp_mercatus_pro_*` (Pro); every public function, option, transient, cache group, hook and capability name starts with `mercatus`.
 - **ARCH-5 Tooling.** PHPUnit is the test runner, with Deptrac for architecture rules. PHPStan runs at level 8 or higher. PHP_CodeSniffer uses WordPress-Extra without the file-name and naming sniffs; escaping, nonce, prepared-SQL and i18n sniffs stay on.
-- **ARCH-6 Module manifest.** Each module declares a manifest before it is loaded. Mercatus validates the manifest, version compatibility, unique IDs, routes and permissions, dependency order and migration state, and exposes a read-only feature manifest at `GET /mercatus/v1/features`, also embedded in `GET /mercatus/v1/me`, so UIs can feature-detect. Core contracts follow semantic versioning: a contract is deprecated for at least one supported minor release, with an upgrade guide, and removed only in the next major.
+- **ARCH-6 Module manifest.** Each module declares a manifest before it is loaded. Mercatus validates the manifest, version compatibility, unique IDs, routes and permissions, dependency order and migration state, and exposes a read-only feature manifest at `GET /mercatus/v1/features`, also embedded in `GET /mercatus/v1/me`, so UIs can feature-detect. Core contracts and the shared kernel follow semantic versioning: a contract or shared-kernel class is deprecated for at least one supported minor release, with an upgrade guide, and removed only in the next major.
 
 ```php
 return new ModuleManifest(
@@ -271,8 +271,8 @@ return new ModuleManifest(
 ### DRY rules
 
 - **DRY-1 One source of truth per fact.** API shapes are defined once in PHP and generate the REST schemas, `openapi/mercatus-v1.yaml`, event schemas and TypeScript types; a contract test fails on drift. Migrations are the schema. One ledger holds all money (MON-8). One typed settings registry handles defaults, sanitising, REST exposure and admin forms.
-- **DRY-2 Shared kernel.** One implementation each for Money, Currency and Allocator, IDs, Clock, the state machine, error codes, cursors, cache keys and revisions, the projection runner, the repository base and the base REST controller.
-- **DRY-3 Boundaries over line counts.** DTOs are not shared between bounded contexts, and Pro never reaches into Core internals, just to save lines. Shared code is extracted on the third repeat.
+- **DRY-2 Shared kernel.** One implementation each for Money, Currency and Allocator, IDs, Clock, the state machine, error codes, cursors, cache keys and revisions, the projection runner, the repository base and the base REST controller. Pro uses the same kernel instead of re-implementing it (ARCH-4).
+- **DRY-3 Boundaries over line counts.** DTOs are not shared between bounded contexts, and Pro never reaches into Core internals (anything outside the contracts and the shared kernel), just to save lines. Shared code is extracted on the third repeat.
 - **DRY-4 Documents.** Each rule is stated once, with an ID; tickets, reviews and module decision files cite the ID.
 
 ---
@@ -316,7 +316,7 @@ return new ModuleManifest(
   - Auto-complete N days after "delivered" (default 3) and, as a backup, N days after "shipped" if the order is never marked delivered (default 14). Setting N to 0 turns it off.
   - "Complete digital-only vendor orders on payment": on, as WooCommerce does for virtual, downloadable orders.
   - Always: the admin can complete any order, and an open refund or return request pauses the timers.
-  - Pro triggers plug into the same policy: OTP at delivery (PRO-6), carrier-confirmed delivery (PRO-2), which marks the order delivered and so starts the timer, and bookings completing N hours after the booking starts.
+  - Pro triggers implement `CompletionTrigger` and plug into the same policy: OTP at delivery (PRO-6), carrier-confirmed delivery (PRO-2), which marks the order delivered and so starts the timer, and bookings completing N hours after the booking starts.
 
 ---
 
@@ -512,13 +512,13 @@ return new ModuleManifest(
 ## 14. Testing
 
 - **TEST-1 The 7-layer pyramid.**
-  - **Layer 1, architecture & static analysis (`tests/Architecture/`):** PHPStan, PHPCS and Deptrac (ARCH-5) on every commit. Enforced: `Mercatus\Core\{Module}\Domain` and `Application` have no dependency on `WP_REST_Request`, `WC_Product`, `WC_Order`, `$wpdb` or WordPress translation functions; Core never references Pro; Pro imports only `Mercatus\Core\Contracts\*`; controllers never import `$wpdb` or repositories; no direct Redis or Memcached client classes; every Command handler and Policy has a matching `*Test.php`.
+  - **Layer 1, architecture & static analysis (`tests/Architecture/`):** PHPStan, PHPCS and Deptrac (ARCH-5) on every commit. Enforced: `Mercatus\Core\{Module}\Domain` and `Application` have no dependency on `WP_REST_Request`, `WC_Product`, `WC_Order`, `$wpdb` or WordPress translation functions; Core never references Pro; Pro imports only `Mercatus\Core\Contracts\*` and `Mercatus\Core\Shared\*`; controllers never import `$wpdb` or repositories; no direct Redis or Memcached client classes; every Command handler and Policy has a matching `*Test.php`.
   - **Layer 2, unit (`tests/Unit/`):** pure PHP 8.2+, no database, no WordPress, under 5 ms per test. Covers money arithmetic and largest-remainder allocation (MON-11); the commission engine with flat basis and coupon, shipping and tax settings (MON-1 to MON-7); state machines for vendor orders, fulfilment, completion triggers, withdrawals and holds; earnings release (MON-9); rate-resolver selection with store tax on and off, approval and fallback (TAX-1 to TAX-5); variable-weight math; policy decisions for all 10 actor types; cache-key and pointer seeding (PLAT-5); ETag generation (PLAT-9); geohash neighbour cells.
   - **Layer 3, contract (`tests/Contract/`):** the generated OpenAPI matches the committed file and every route's requests and responses validate against it; every adapter passes its conformance trait (`CachePortConformanceTrait`, `CoordinationPortConformanceTrait`, `TaxRateResolverConformanceTrait`, `PayoutProviderConformanceTrait`, `CatalogSearchPortConformanceTrait`); every event payload validates against its versioned JSON Schema.
   - **Layer 4, integration (`tests/Integration/`):** MySQL 8.0 and 8.4, MariaDB 10.6, 10.11 and 11.4, WordPress 6.6+, WooCommerce 9.2+ with HPOS; each run with Redis, with Memcached and with no persistent cache. Covers migrations (up, idempotent re-run, checksums, Pro lazy migration); repositories with `EXPLAIN` assertions (no `type = ALL`, no `Using filesort` on hot queries); `CachePort` and `CoordinationPort` with and without a persistent cache; idempotency under concurrent duplicates; ETags stable across requests without a persistent cache; the two-stage split on HPOS (no duplicate stock deductions or emails, children hidden per ORD-7); WooCommerce tax integration (per-item rates, snapshots from saved order taxes, the TAX-8 safety net, displayed prices matching the cart); outbox lease claiming with two parallel workers.
   - **Layer 5, security (`tests/Security/`):** see TEST-2.
   - **Layer 6, scale (`tests/Scale/`):** nightly, restored from a saved dump of `wp mercatus seed:scale` data (PLAT-10), with and without a persistent cache. Fails the build when a query ceiling is exceeded; records and trends latency.
-  - **Layer 7, end-to-end & JS (`tests/EndToEnd/`, `tests/Js/`):** full API acceptance journeys, browser journeys for checkout, vendor order handling, completion and withdrawals, and JS unit tests for first-party UIs. JS unit tests use Jest and browser journeys use Playwright, both through `@wordpress/scripts` (ARCH-13).
+  - **Layer 7, end-to-end & JS (`tests/EndToEnd/`, `tests/Js/`):** full API acceptance journeys, browser journeys for checkout, vendor order handling, completion and withdrawals, and JS unit tests for first-party UIs. JS unit tests use Vitest, the runner `@wordpress/scripts` ships by default, and browser journeys use Playwright, both through `@wordpress/scripts` (ARCH-13).
 - **TEST-2 Generated security matrix.** The actor × resource × endpoint matrix is generated from the route registry, so every new route is covered automatically. It covers: IDOR/BOLA (vendor A against vendor B's store, products, offers, media, child orders, shipments, shipping zones, tax profile and rates, earnings and withdrawals → 404, SEC-4); privilege escalation and staff scope; mass-assignment fuzzing; missing nonce, idempotent replay and stale `If-Match` (→ 409); PII and secret redaction; rich-text and upload policy (SEC-7); vendors unable to edit products through the WooCommerce REST API (SEC-8).
 - **TEST-3 Module test matrix.** Every module ships with these test classes before its ticket can close, and tickets use the same class names. Three cross-cutting tests belong to a layer instead of a module: `DependencyRulesTest` (Layer 1), `OpenApiSchemaConformanceTest` (Layer 3) and `BaselineQueryAndLatencyGateTest` (Layer 6).
 
@@ -554,7 +554,7 @@ return new ModuleManifest(
   4. **Application:** commands, queries and policies, with unit tests.
   5. **API:** endpoints on the base REST controller, regenerated OpenAPI, contract tests and the generated security matrix (TEST-2).
   6. **WordPress and WooCommerce:** adapters and hooks.
-  7. **UI:** the module's screens (ARCH-13), with Jest and Playwright tests.
+  7. **UI:** the module's screens (ARCH-13), with Vitest and Playwright tests.
   8. **Scale:** the module's seeder slice and query ceilings, with and without a persistent cache (PLAT-10).
   9. **Done:** the module's TEST-3 row passes in CI, no guardrail in Section 2 is violated, and its decision file is marked implemented.
 - **ROAD-3 Module order.**
