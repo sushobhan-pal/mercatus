@@ -18,5 +18,13 @@
 			<directory>tests/Architecture</directory>
 			<exclude>tests/Architecture/Fixtures</exclude>
 		</testsuite>
+		<!-- OpenApiSchemaConformanceTest needs WordPress and runs with the integration suite. -->
+		<testsuite name="contract">
+			<directory>tests/Contract</directory>
+			<exclude>tests/Contract/OpenApiSchemaConformanceTest.php</exclude>
+		</testsuite>
+		<testsuite name="security">
+			<directory>tests/Security</directory>
+		</testsuite>
 	</testsuites>
 </phpunit>

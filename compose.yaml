@@ -49,6 +49,7 @@ services:
       DB_PASSWORD: wp
       DB_PROFILE: ${DB_PROFILE:-}
       CACHE_MODE: ${CACHE_MODE:-none}
+      MERCATUS_UPDATE_OPENAPI: ${MERCATUS_UPDATE_OPENAPI:-}
 
   mysql-8.0:
     <<: *mysql

@@ -13,6 +13,7 @@
 	<testsuites>
 		<testsuite name="integration">
 			<directory>tests/Integration</directory>
+			<file>tests/Contract/OpenApiSchemaConformanceTest.php</file>
 		</testsuite>
 	</testsuites>
 </phpunit>

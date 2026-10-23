@@ -11,10 +11,12 @@
 		"start": "wp-scripts start --webpack-src-dir=ui/src --output-path=build",
 		"lint:js": "wp-scripts lint-js ui",
 		"lint:css": "wp-scripts lint-style \"ui/**/*.{css,scss}\" --allow-empty-input",
+		"lint:openapi": "redocly lint openapi/mercatus-v1.yaml",
 		"test:unit": "wp-scripts test-unit-js --passWithNoTests",
 		"test:e2e": "wp-scripts test-playwright"
 	},
 	"devDependencies": {
+		"@redocly/cli": "2.60.0",
 		"@wordpress/scripts": "^37.0.0",
 		"vite": "^8.3.5",
 		"vitest": "^5.0.5"

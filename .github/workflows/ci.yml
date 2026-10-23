@@ -54,6 +54,7 @@ jobs:
       - run: npm ci
       - run: npm run lint:js
       - run: npm run lint:css
+      - run: npm run lint:openapi
       - run: npm run test:unit
       - run: npm run build
 
