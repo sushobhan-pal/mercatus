@@ -9,3 +9,8 @@ parameters:
 	scanFiles:
 		- vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
 		- vendor/php-stubs/wordpress-tests-stubs/wordpress-tests-stubs.php
+	ignoreErrors:
+		# The integration bootstrap enables HPOS through WooCommerce internals that the published stubs leave out.
+		-
+			identifier: class.notFound
+			path: tests/bootstrap-integration.php

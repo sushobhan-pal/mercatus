@@ -1,0 +1,89 @@
+# Integration-test environment (TEST-4). Pick one database profile and at most one cache profile, for example:
+#   docker compose --profile mariadb-11.4 --profile redis up -d --build --wait
+# bin/test-integration.sh does this and runs the suite. WORDPRESS_TAG and WOOCOMMERCE_VERSION choose the
+# WordPress/PHP image and WooCommerce version.
+
+x-database-env: &database-env
+  MYSQL_DATABASE: wordpress_test
+  MYSQL_USER: wp
+  MYSQL_PASSWORD: wp
+  MYSQL_ROOT_PASSWORD: root
+
+x-mysql: &mysql
+  environment: *database-env
+  networks:
+    default:
+      aliases: [db]
+  healthcheck:
+    test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"]
+    interval: 3s
+    timeout: 5s
+    retries: 40
+
+x-mariadb: &mariadb
+  environment: *database-env
+  networks:
+    default:
+      aliases: [db]
+  healthcheck:
+    test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+    interval: 3s
+    timeout: 5s
+    retries: 40
+
+services:
+  wordpress:
+    build:
+      context: .docker/wordpress
+      args:
+        WORDPRESS_TAG: ${WORDPRESS_TAG:-php8.4-apache}
+        WOOCOMMERCE_VERSION: ${WOOCOMMERCE_VERSION:-latest-stable}
+    image: mercatus-test-wordpress:${WORDPRESS_TAG:-php8.4-apache}-wc-${WOOCOMMERCE_VERSION:-latest-stable}
+    command: ["sleep", "infinity"]
+    volumes:
+      - .:/usr/src/wordpress/wp-content/plugins/mercatus
+    environment:
+      DB_HOST: db
+      DB_NAME: wordpress_test
+      DB_USER: wp
+      DB_PASSWORD: wp
+      DB_PROFILE: ${DB_PROFILE:-}
+      CACHE_MODE: ${CACHE_MODE:-none}
+
+  mysql-8.0:
+    <<: *mysql
+    image: mysql:8.0
+    profiles: [mysql-8.0]
+
+  mysql-8.4:
+    <<: *mysql
+    image: mysql:8.4
+    profiles: [mysql-8.4]
+
+  mariadb-10.6:
+    <<: *mariadb
+    image: mariadb:10.6
+    profiles: [mariadb-10.6]
+
+  mariadb-10.11:
+    <<: *mariadb
+    image: mariadb:10.11
+    profiles: [mariadb-10.11]
+
+  mariadb-11.4:
+    <<: *mariadb
+    image: mariadb:11.4
+    profiles: [mariadb-11.4]
+
+  redis:
+    image: redis:7-alpine
+    profiles: [redis]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  memcached:
+    image: memcached:1.6-alpine
+    profiles: [memcached]
