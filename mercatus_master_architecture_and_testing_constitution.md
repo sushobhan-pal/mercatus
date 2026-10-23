@@ -1,6 +1,6 @@
 # Mercatus — Master Architecture, Decisions & Testing Constitution
 
-**Version:** 2.1, frozen 2026-10-23.
+**Version:** 2.2, frozen 2026-10-23.
 **Scope:** the single source of truth for **Mercatus** (free) and **Mercatus Pro**: product decisions, architecture, data model, security, testing and roadmap.
 **Change control:** this document is frozen. A change needs the product owner's approval, is made directly in the section it belongs to, and raises the version. The previous version is archived in `archive/`.
 
@@ -101,7 +101,7 @@ A reviewer, human or AI, **MUST REJECT** a pull request, commit or generated cha
 | **Engagement** | Public store reviews and moderation | Groups & Staff, Memberships, Affiliate, advanced notifications, support extensions |
 | **Data & intelligence** | Exportable basic data and event stream | Analytics, scheduled reports, AI Suite with explicit provider consent and quotas |
 
-- **SCOPE-3 Storefront scope.** Mercatus owns vendor storefronts, the vendor dashboard and its own catalog and offer blocks. WooCommerce's shop and category pages remain WooCommerce's.
+- **SCOPE-3 Storefront scope.** Mercatus owns vendor storefronts, the marketplace dashboard (ARCH-13) and its own catalog and offer blocks. WooCommerce's shop and category pages remain WooCommerce's.
 - **SCOPE-4 Not in version 1:**
   - an OAuth2/PKCE server (SEC-1), H3 indexing (CAT-6), a direct Redis/Memcached client (PLAT-3), a Mercatus payment bridge for classic gateways (ARCH-12), CDN purge by tag (PLAT-3);
   - third-party tax plugin support (TAX-11);
@@ -195,7 +195,7 @@ mercatus/
     seeders/                # ScaleBenchmarkSeeder (wp mercatus seed:scale), grown module by module
   openapi/
     mercatus-v1.yaml        # generated from the PHP API definitions, committed and diff-checked (DRY-1)
-  ui/                       # React apps: vendor dashboard and admin screens (ARCH-13)
+  ui/                       # React app: the marketplace dashboard (ARCH-13)
   compose.yaml              # local test environment (TEST-4)
   .github/workflows/        # CI matrix (TEST-4)
   tests/
@@ -242,6 +242,7 @@ return new ModuleManifest(
     routes: PayoutRoutes::class,
     migrations: PayoutMigrations::class,
     permissions: PayoutPermissions::class,
+    dashboardMenu: PayoutMenu::class,
     eventSubscribers: [PayoutSubscriber::class],
     healthChecks: [PayoutHealthCheck::class],
 );
@@ -255,7 +256,8 @@ return new ModuleManifest(
   4. **REST route registration:** through the registrar only, with lazy schema loading and a permission callback.
   5. **Read-model and field extensions:** namespaced fields with explicit visibility rules.
   6. **Documented WordPress filters at policy decision points only,** named `mercatus_{subject}_{decision}`: `mercatus_store_tax_enabled` (TAX-2), `mercatus_commission_flat_basis` (MON-2) and `mercatus_earnings_hold_days` (PRO-5). Never filters over internal arrays.
-- **ARCH-9 In-process execution.** Server-rendered blocks, WooCommerce hooks, CLI commands and workers call Application Commands and Queries in memory, never through an HTTP loopback. Buyer-facing Mercatus pages hydrate above-the-fold data in the first PHP response with the same DTO serializer as the REST API. First-party vendor and admin apps load actor, capabilities, features and store context in one `/mercatus/v1/me` call. `GET` queries read projections and the cache and serialize straight to DTOs, without hydrating rich aggregates or instantiating `WC_Product`/`WC_Order` in loops.
+  7. **Dashboard menu items and screens,** declared in the module manifest with the capability each requires (ARCH-13).
+- **ARCH-9 In-process execution.** Server-rendered blocks, WooCommerce hooks, CLI commands and workers call Application Commands and Queries in memory, never through an HTTP loopback. Buyer-facing Mercatus pages hydrate above-the-fold data in the first PHP response with the same DTO serializer as the REST API. The marketplace dashboard loads the actor, capabilities, features, store context and menu in one `/mercatus/v1/me` call. `GET` queries read projections and the cache and serialize straight to DTOs, without hydrating rich aggregates or instantiating `WC_Product`/`WC_Order` in loops.
 - **ARCH-10 Transactions.** Database transactions wrap only `wp_mercatus_*` writes. WooCommerce writes happen outside them and are safe to retry.
 - **ARCH-11 Money is synchronous.** Every money change happens synchronously in its command's transaction. The outbox carries side effects only (API-3).
 - **ARCH-12 WooCommerce boundary.** Mercatus keeps WooCommerce for its payment gateways, product-type plugins (Bookings, Subscriptions, Auctions), cart, checkout and tax engine, and reuses it wherever it already does the job:
@@ -264,7 +266,7 @@ return new ModuleManifest(
   - **Writes** go through WooCommerce CRUD and HPOS data stores, never directly into WooCommerce tables.
   - **Price and stock:** Mercatus offers and inventory are the source of truth; WooCommerce `_price` and `_stock` are copies written by Mercatus.
   - **Projection sync:** WooCommerce product and stock saves made outside Mercatus update the read projections, and a nightly job reconciles them. A vendor's own edit updates that product's projection row immediately.
-- **ARCH-13 First-party UI.** Dashboards and admin screens are React apps built with `@wordpress/scripts`, `@wordpress/components` and `@wordpress/data`, and talk only to the Mercatus REST API. The vendor dashboard is a full-screen app on a frontend page, so vendors never enter wp-admin (SEC-8). Marketplace admin screens are available both in wp-admin, under a Mercatus menu, and in the frontend dashboard: each screen is built once and mounted in both places, using the same API and policies (DRY-1). Buyer-facing store pages stay server-rendered blocks (ARCH-9).
+- **ARCH-13 One marketplace dashboard.** All Mercatus management happens in one uncluttered, full-screen dashboard on a frontend page, shared by every role: administrators, marketplace managers, vendors, vendor staff and, with their Pro modules, delivery agents and affiliates. Each user sees only the menu items and screens that their actor type, capabilities and active modules allow. Mercatus adds no management screens to wp-admin beyond a menu link that opens the dashboard, and vendors never enter wp-admin (SEC-8). The dashboard is a React app built with `@wordpress/scripts`, `@wordpress/components` and `@wordpress/data`, talking only to the Mercatus REST API. Each module declares its menu items and screens in its manifest (ARCH-6), with the capability each requires, and `/me` returns the menu for the current actor. A hidden menu item is never the security boundary: every screen's API calls pass the same policies (SEC-2). Buyer-facing store pages stay server-rendered blocks (ARCH-9).
 
 ### DRY rules
 
@@ -290,7 +292,7 @@ return new ModuleManifest(
 - **CAT-2 Two-tier attributes.** Tier 1 attributes are native WooCommerce attributes, used only when they generate distinct purchasable variations (for example Size, Color). Tier 2 filtering and specification attributes live in `wp_mercatus_attributes`, `wp_mercatus_attribute_values`, `wp_mercatus_category_attribute_maps` and `wp_mercatus_catalog_facets`, never as global `pa_*` taxonomies.
 - **CAT-3 Categories.** Categories are indexed with a materialized path, depth and leaf flag in `wp_mercatus_categories`. `GET /catalog/categories/{id}/schema` returns only the attributes mapped to that category branch. Category trees load lazily by parent (`GET /categories?parent_id=X`), and attribute values use cursor-based search (`GET /attributes/{id}/terms?search=...&cursor=...`).
 - **CAT-4 Facet counts** are precomputed per category, or approximate.
-- **CAT-5 Read projections.** Lists on Mercatus-owned surfaces (vendor storefronts, vendor dashboard, Mercatus catalog and offer blocks) read `wp_mercatus_offer_availability` and `wp_mercatus_catalog_facets` through repositories, never `WP_Query`, `get_posts()`, `wc_get_products()` or `wp_postmeta`/`wp_term_relationships` joins. Reading one product through WooCommerce CRUD to edit it is allowed.
+- **CAT-5 Read projections.** Lists on Mercatus-owned surfaces (vendor storefronts, the marketplace dashboard, Mercatus catalog and offer blocks) read `wp_mercatus_offer_availability` and `wp_mercatus_catalog_facets` through repositories, never `WP_Query`, `get_posts()`, `wc_get_products()` or `wp_postmeta`/`wp_term_relationships` joins. Reading one product through WooCommerce CRUD to edit it is allowed.
 - **CAT-6 Location discovery.** An address is geocoded only when a location is created or updated, never during cart or checkout. Locations and availability rows store `latitude`, `longitude` and an indexed 6-character geohash prefix (`geo_cell`). Searches query the target cell and its neighbours with an indexed `WHERE geo_cell IN (...)`, then compute exact distances in PHP for the matched candidates only.
 
 ---
@@ -372,7 +374,7 @@ return new ModuleManifest(
 
 ## 11. Identity & Security
 
-- **SEC-1 Actors and authentication.** Actors resolve into an immutable `ActorIdentity`, independent of WordPress roles: `anonymous`, `customer`, `vendor_owner`, `vendor_staff`, `delivery_agent`, `marketplace_manager`, `administrator`, `integration_client` and `webhook_provider`.
+- **SEC-1 Actors and authentication.** Actors resolve into an immutable `ActorIdentity`, independent of WordPress roles: `anonymous`, `customer`, `vendor_owner`, `vendor_staff`, `delivery_agent`, `affiliate`, `marketplace_manager`, `administrator`, `integration_client` and `webhook_provider`. `delivery_agent` and `affiliate` exist only while their Pro modules are active.
   - Browser UIs: WordPress cookies plus `X-WP-Nonce`.
   - Server-to-server integrations and, in v1, mobile apps: WordPress Application Passwords mapped to `wp_mercatus_api_clients`, with scopes, expiry and revocation, and optional IP allow-lists. An OAuth2/PKCE server is not in v1 and would arrive as its own module.
   - Webhooks: raw-body HMAC signature verification, a timestamp window and stored event-ID replay defence.
@@ -511,7 +513,7 @@ return new ModuleManifest(
 
 - **TEST-1 The 7-layer pyramid.**
   - **Layer 1, architecture & static analysis (`tests/Architecture/`):** PHPStan, PHPCS and Deptrac (ARCH-5) on every commit. Enforced: `Mercatus\Core\{Module}\Domain` and `Application` have no dependency on `WP_REST_Request`, `WC_Product`, `WC_Order`, `$wpdb` or WordPress translation functions; Core never references Pro; Pro imports only `Mercatus\Core\Contracts\*`; controllers never import `$wpdb` or repositories; no direct Redis or Memcached client classes; every Command handler and Policy has a matching `*Test.php`.
-  - **Layer 2, unit (`tests/Unit/`):** pure PHP 8.2+, no database, no WordPress, under 5 ms per test. Covers money arithmetic and largest-remainder allocation (MON-11); the commission engine with flat basis and coupon, shipping and tax settings (MON-1 to MON-7); state machines for vendor orders, fulfilment, completion triggers, withdrawals and holds; earnings release (MON-9); rate-resolver selection with store tax on and off, approval and fallback (TAX-1 to TAX-5); variable-weight math; policy decisions for all 9 actor types; cache-key and pointer seeding (PLAT-5); ETag generation (PLAT-9); geohash neighbour cells.
+  - **Layer 2, unit (`tests/Unit/`):** pure PHP 8.2+, no database, no WordPress, under 5 ms per test. Covers money arithmetic and largest-remainder allocation (MON-11); the commission engine with flat basis and coupon, shipping and tax settings (MON-1 to MON-7); state machines for vendor orders, fulfilment, completion triggers, withdrawals and holds; earnings release (MON-9); rate-resolver selection with store tax on and off, approval and fallback (TAX-1 to TAX-5); variable-weight math; policy decisions for all 10 actor types; cache-key and pointer seeding (PLAT-5); ETag generation (PLAT-9); geohash neighbour cells.
   - **Layer 3, contract (`tests/Contract/`):** the generated OpenAPI matches the committed file and every route's requests and responses validate against it; every adapter passes its conformance trait (`CachePortConformanceTrait`, `CoordinationPortConformanceTrait`, `TaxRateResolverConformanceTrait`, `PayoutProviderConformanceTrait`, `CatalogSearchPortConformanceTrait`); every event payload validates against its versioned JSON Schema.
   - **Layer 4, integration (`tests/Integration/`):** MySQL 8.0 and 8.4, MariaDB 10.6, 10.11 and 11.4, WordPress 6.6+, WooCommerce 9.2+ with HPOS; each run with Redis, with Memcached and with no persistent cache. Covers migrations (up, idempotent re-run, checksums, Pro lazy migration); repositories with `EXPLAIN` assertions (no `type = ALL`, no `Using filesort` on hot queries); `CachePort` and `CoordinationPort` with and without a persistent cache; idempotency under concurrent duplicates; ETags stable across requests without a persistent cache; the two-stage split on HPOS (no duplicate stock deductions or emails, children hidden per ORD-7); WooCommerce tax integration (per-item rates, snapshots from saved order taxes, the TAX-8 safety net, displayed prices matching the cart); outbox lease claiming with two parallel workers.
   - **Layer 5, security (`tests/Security/`):** see TEST-2.
@@ -525,7 +527,7 @@ return new ModuleManifest(
 | **1. Kernel, settings & migrations** | `ModuleManifestValidatorTest`, `VersionCompatibilityTest`, `FeatureManifestCompilerTest`, `SettingsRegistryTest` | `MigrationRunnerTest`, `FeaturesEndpointContractTest` | `HealthEndpointAuthTest`, `ZeroQueryKernelBootTest`, `InactiveModuleZeroFootprintTest` |
 | **2. Caching & coordination** | `VersionedCacheKeyResolverTest`, `SoftExpiryStampedeCalculatorTest`, `EtagFromVersionTest` | `CachePortRedisTest`, `CachePortMemcachedTest`, `CachePortNoPersistentCacheTest`, `CoordinationPortNoPersistentCacheTest`, `BatchMultiGetIntegrationTest`, `SingleflightLockConcurrencyTest` | `CacheFlushAuthorizationTest`, `WarmCacheZeroSqlBenchmarkTest` |
 | **3. Outbox & worker** | `EventPayloadSerializerTest`, `BulkEventCoalescerTest`, `RetryBackoffPolicyTest` | `OutboxTransactionalWriteTest`, `LeaseClaimParallelWorkerTest`, `CriticalVsBulkLanePriorityTest`, `DomainEventActionBridgeTest` | `CronContextSpoofingTest`, `OutboxBatchThroughputBenchmarkTest` (1,000 events < 2 s) |
-| **4. Identity & policy** | `ActorIdentityResolverTest`, `PolicyEngineMatrixTest` | `CachedActorIdentityInvalidationTest`, `ApiClientScopeIntegrationTest`, `IdempotencyStoreIntegrationTest` | `IdorActorMatrixTest`, `CsrfNonceEnforcementTest`, `RateLimiterTest` |
+| **4. Identity & policy** | `ActorIdentityResolverTest`, `PolicyEngineMatrixTest`, `DashboardMenuCompilerTest` | `CachedActorIdentityInvalidationTest`, `ApiClientScopeIntegrationTest`, `IdempotencyStoreIntegrationTest` | `IdorActorMatrixTest`, `CsrfNonceEnforcementTest`, `RateLimiterTest` |
 | **5. Vendor & storefront** | `VendorLifecycleStateMachineTest`, `StoreSlugNormalizerTest`, `StorePolicyTest` | `VendorApplicationWorkflowTest`, `DefaultLocationAutoCreationTest`, `StoreRepositoryTest` | `StoreCrossTenantIsolationTest`, `StorePiiFieldRedactionTest`, `StorefrontEdgeCacheHeaderTest` |
 | **6. Catalog & projections** | `TwoTierAttributePolicyTest`, `MaterializedCategoryPathTest`, `EffectivePriceResolverTest`, `CatalogPolicyTest` | `WooProductCrudAdapterTest`, `OfferAvailabilityProjectionSyncTest`, `ProjectionDriftReconcilerTest`, `CatalogFacetIndexQueryTest`, `MediaOwnershipQuotaTest` | `ProductMassAssignmentOwnershipTest`, `MediaCrossVendorDeleteTest`, `HundredThousandProductFacetBenchmarkTest` |
 | **7. Shipping & tax** | `TaxRateResolverSelectionTest`, `StoreTaxPolicyTest`, `ShippingZoneMatcherTest`, `ProRataDiscountTaxRoundingTest` | `WooCartItemTaxRatesTest`, `TaxSnapshotFromOrderLinesTest`, `OrderRecalculationTaxSafetyNetTest`, `VendorShippingTaxTestQuoteEndpointTest` | `UnapprovedTaxRatesFallbackTest`, `VendorGlobalWooSettingsIsolationTest`, `DisplayedPriceMatchesCartTaxTest` |
@@ -563,7 +565,7 @@ return new ModuleManifest(
 | 0′ | OPEN-1 spike | Vendor tax rate storage, in a throwaway plugin; can run alongside other work | — | 0 |
 | 1 | `core.kernel` | Boot, module registry and manifests, settings registry, migration runner, `/features`, `CachePort`, `CoordinationPort`, outbox and event bridge, audit log | 0 | 1 |
 | 2 | `core.identity` | Actor identity, policy engine, `/me`, base REST controller (errors, cursors, ETags, `If-Match`), idempotency, rate limiter, API clients | 1 | 1 |
-| 3 | `core.vendor` | Vendor applications and lifecycle, the first emails, the vendor and admin dashboard shells (ARCH-13) | 2 | 2 |
+| 3 | `core.vendor` | Vendor applications and lifecycle, the first emails, the marketplace dashboard shell with role-based menus (ARCH-13) | 2 | 2 |
 | 4 | `core.store` | Storefront profile and slug, default fulfilment location with geohash, `/stores` APIs, store page, vendor store settings | 3 | 2 |
 | 5a | `core.catalog`: products | Products, offers and inventory through WooCommerce, media ownership, availability projection, drift reconciliation | 4 | 3 |
 | 5b | `core.catalog`: discovery | Tier 2 attributes, category index, facets, catalog block | 5a | 3 |
