@@ -13,6 +13,7 @@ use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Cache\CoordinationPort;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
+use Mercatus\Core\Database\Seeders\ScaleSeedCommand;
 use Mercatus\Core\Infrastructure\Audit\AuditStore;
 use Mercatus\Core\Infrastructure\Audit\BufferedAuditLog;
 use Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner;
@@ -247,6 +248,10 @@ final class Kernel {
 			$command = new KernelCommand( $this );
 			\WP_CLI::add_command( 'mercatus migrate', array( $command, 'migrate' ) );
 			\WP_CLI::add_command( 'mercatus outbox:work', array( $command, 'work' ) );
+			// Development tooling, absent from the plugin zip (KER-12).
+			if ( class_exists( ScaleSeedCommand::class ) ) {
+				\WP_CLI::add_command( 'mercatus seed:scale', new ScaleSeedCommand( $this ) );
+			}
 		}
 	}
 

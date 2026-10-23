@@ -34,6 +34,7 @@
 		<!-- WordPress test-suite config and bootstrap: they must define WordPress's own constants and globals. -->
 		<exclude-pattern>tests/wp-tests-config.php</exclude-pattern>
 		<exclude-pattern>tests/bootstrap-integration.php</exclude-pattern>
+		<exclude-pattern>tests/bootstrap-scale.php</exclude-pattern>
 	</rule>
 
 	<!-- Mercatus never prints exception messages: they are fixed strings or error codes, context travels in

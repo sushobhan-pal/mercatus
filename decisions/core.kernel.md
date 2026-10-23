@@ -232,6 +232,21 @@ Unmet requirements, pending migrations and drifted migration checksums show as w
   - Switching a module publishes `kernel.module.activated` or `.deactivated` and writes a `module.activated` or `.deactivated` audit entry in one transaction. A refused switch records nothing.
   - Only the kernel that `Kernel::activate()` booted attaches site hooks (REST routes, the poller, the admin migrate action, WP-CLI), so kernels that tests create don't add listeners.
   - The integration bootstrap runs `Kernel::activate()` at `plugins_loaded` priority 5 instead of at `setup_theme`, so the tables exist before the site's kernel boots at the default priority and registers its routes. The committed OpenAPI file now documents the kernel's routes.
+- **KER-23 Scale seeding, the gate and the CI schedule (ticket 9).**
+  - `database/seeders/` holds the step framework (`ScaleBenchmarkSeeder`, `SeedStep`, `SeedContext`) and `ScaleSeedCommand`. Composer autoloads it only in development, and the kernel registers `wp mercatus seed:scale` only when it's present.
+  - A module adds its step as `database/seeders/steps/<module-id>.php`, a file that returns a `SeedStep`. Steps run for active modules in load order; the kernel has no step of its own.
+  - Each step's random sequence comes from the run's seed (1729 unless `--seed` says otherwise) and its module ID, so changing one module's step leaves the other modules' data unchanged.
+  - `SeedContext` sizes records from the PLAT-10 targets times `--scale`. Its `inBatches()` clears WordPress's runtime cache and query log between batches, so memory stays flat.
+  - The command refuses unless `WP_ENVIRONMENT_TYPE` is `local` or `development`, and refuses a site that was seeded before. It records the run in `mercatus_scale_seed`, and the scale suite refuses a site without that record.
+  - `bin/scale.sh dump` uses WP-CLI 2.12.0, now in the test image, to install a real site with the table prefix `wpscale_`. It then enables HPOS (a WooCommerce install from WP-CLI leaves it off), activates Mercatus, seeds, and saves a compressed dump using the database container's own client.
+  - `bin/scale.sh test <cache>` restores the dump, applies WordPress, WooCommerce and Mercatus updates, and runs `tests/Scale` against that site through `wp-load.php` rather than the WordPress test suite.
+  - `BaselineQueryAndLatencyGateTest` warms each scenario up once, then counts Mercatus's own queries: those with Mercatus code on the call stack, which WordPress records under `SAVEQUERIES`. It fails when a count is above the scenario's ceiling.
+  - It also times 25 runs and writes the median and p95 to `artifacts/scale/baseline-<cache>.json` and the job summary. Latency is tracked, not gated (PLAT-10).
+  - The kernel's ceilings, the same with and without a persistent cache: boot, `/features` and warm cache reads 0; publishing an event 6; an idle poll 2; the health report 1.
+  - The gate showed that an idle poll read the outbox after each claim that matched nothing. The outbox store now skips that read, which takes an idle poll from 4 queries to 2.
+  - `scale.yml` runs the suite weekly (Sunday 02:30 UTC), on demand, and on pull requests labelled `scale`. It uses MariaDB 11.4, once without a persistent cache and once with Redis (KER-17).
+  - The dump is an Actions cache entry keyed by a hash of `database/seeders/`, `bin/scale.sh` and `.docker/wordpress/`. GitHub evicts entries unused for 7 days, so a weekly run can occasionally rebuild it.
+  - In `ci.yml`, a plan job skips the nightly run when the last scheduled run tested the same `main` commit (KER-17).
 
 ## 11. Open questions
 None. All six were answered on 2026-10-23 and are recorded as KER-11 and KER-13 to KER-17.

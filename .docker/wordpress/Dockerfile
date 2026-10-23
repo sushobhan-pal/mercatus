@@ -1,12 +1,14 @@
 # Integration-test image (TEST-4): WordPress core from the official image, the WooCommerce version under test,
 # the WordPress test library for the exact core version, both object-cache drop-ins with their PECL
-# extensions, and Composer. The test runner picks the drop-in at run time (CACHE_MODE).
+# extensions, Composer, and WP-CLI for the scale suite's site (KER-12). The test runners pick the drop-in at
+# run time (CACHE_MODE).
 ARG WORDPRESS_TAG=php8.4-apache
 FROM wordpress:${WORDPRESS_TAG}
 
 ARG WOOCOMMERCE_VERSION=latest-stable
 ARG REDIS_CACHE_VERSION=latest-stable
 ARG WP_MEMCACHED_REF=4.0.0
+ARG WP_CLI_VERSION=2.12.0
 
 # Everything is fetched over HTTPS (Debian's mirror and the PECL packages): some networks block outbound
 # plain HTTP, and older images' PECL clients still read their channel over it. PECL memcache lags behind new
@@ -31,6 +33,10 @@ RUN set -eux; \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 RUN set -eux; \
+	curl -fsSL "https://github.com/wp-cli/wp-cli/releases/download/v${WP_CLI_VERSION}/wp-cli-${WP_CLI_VERSION}.phar" -o /usr/local/bin/wp; \
+	chmod +x /usr/local/bin/wp
+
+RUN set -eux; \
 	curl -fsSL "https://downloads.wordpress.org/plugin/woocommerce.${WOOCOMMERCE_VERSION}.zip" -o /tmp/woocommerce.zip; \
 	unzip -q /tmp/woocommerce.zip -d /usr/src/wordpress/wp-content/plugins; \
 	rm /tmp/woocommerce.zip
@@ -52,5 +58,5 @@ RUN set -eux; \
 # Loads wp-memcached and adds the runtime-cache flush the WordPress test suite needs.
 COPY memcached-object-cache.php /opt/mercatus-dropins/memcached/object-cache.php
 
-ENV WP_TESTS_DIR=/opt/wp-tests-lib
+ENV WP_TESTS_DIR=/opt/wp-tests-lib WP_CLI_ALLOW_ROOT=1
 WORKDIR /usr/src/wordpress/wp-content/plugins/mercatus

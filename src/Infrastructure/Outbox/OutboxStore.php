@@ -83,9 +83,9 @@ final class OutboxStore {
 	public function claim( EventLane $lane, string $token, int $limit, DateTimeImmutable $now, int $lease_seconds ): array {
 		$time = EventPayloadSerializer::format( $now );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- claims rows with an atomic update.
-		$this->db->query( self::prepared( $this->db, "UPDATE %i SET claimed_by = %s, lease_until = %s WHERE lane = %s AND status = 'pending' AND available_at <= %s AND ( lease_until IS NULL OR lease_until < %s ) ORDER BY id LIMIT %d", $this->table(), $token, EventPayloadSerializer::format( $now->add( new DateInterval( 'PT' . $lease_seconds . 'S' ) ) ), $lane->value, $time, $time, $limit ) );
+		$updated = $this->db->query( self::prepared( $this->db, "UPDATE %i SET claimed_by = %s, lease_until = %s WHERE lane = %s AND status = 'pending' AND available_at <= %s AND ( lease_until IS NULL OR lease_until < %s ) ORDER BY id LIMIT %d", $this->table(), $token, EventPayloadSerializer::format( $now->add( new DateInterval( 'PT' . $lease_seconds . 'S' ) ) ), $lane->value, $time, $time, $limit ) );
 
-		return $this->claimed( $token );
+		return $this->claimed( $token, $updated );
 	}
 
 	/**
@@ -103,9 +103,9 @@ final class OutboxStore {
 		}
 		$list = implode( ', ', array_map( fn( string $uuid ): string => self::prepared( $this->db, '%s', $uuid ), $uuids ) );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- the list is prepared value by value.
-		$this->db->query( self::prepared( $this->db, "UPDATE %i SET claimed_by = %s, lease_until = %s WHERE status = 'pending' AND claimed_by IS NULL AND event_uuid IN ( ", $this->table(), $token, EventPayloadSerializer::format( $now->add( new DateInterval( 'PT' . $lease_seconds . 'S' ) ) ) ) . $list . ' )' );
+		$updated = $this->db->query( self::prepared( $this->db, "UPDATE %i SET claimed_by = %s, lease_until = %s WHERE status = 'pending' AND claimed_by IS NULL AND event_uuid IN ( ", $this->table(), $token, EventPayloadSerializer::format( $now->add( new DateInterval( 'PT' . $lease_seconds . 'S' ) ) ) ) . $list . ' )' );
 
-		return $this->claimed( $token );
+		return $this->claimed( $token, $updated );
 	}
 
 	/**
@@ -170,12 +170,17 @@ final class OutboxStore {
 	}
 
 	/**
-	 * Rows a token claimed, oldest first.
+	 * Rows a token claimed, oldest first. A claim that matched no rows reads nothing, so an idle poll costs one
+	 * query per lane.
 	 *
-	 * @param string $token Claim token.
+	 * @param string   $token   Claim token.
+	 * @param int|bool $updated What the claiming update returned: rows changed, or false on error.
 	 * @return list<OutboxRecord>
 	 */
-	private function claimed( string $token ): array {
+	private function claimed( string $token, int|bool $updated ): array {
+		if ( 0 === $updated || false === $updated ) {
+			return array();
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- reads the rows just claimed.
 		$rows    = $this->db->get_results( self::prepared( $this->db, "SELECT * FROM %i WHERE claimed_by = %s AND status = 'pending' ORDER BY id", $this->table(), $token ), ARRAY_A );
 		$records = array();

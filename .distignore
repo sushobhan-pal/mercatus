@@ -7,6 +7,7 @@
 /archive
 /artifacts
 /bin
+/database/seeders
 /decisions
 /docs
 /node_modules
@@ -31,5 +32,6 @@ package.json
 phpcs.xml.dist
 phpstan.neon.dist
 phpunit-integration.xml.dist
+phpunit-scale.xml.dist
 phpunit.xml.dist
 redocly.yaml
