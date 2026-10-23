@@ -1,6 +1,6 @@
 # `groundwork` — Decision File
 
-**Status:** Draft, awaiting approval (2026-10-23)
+**Status:** Draft, open questions resolved (2026-10-23); awaiting approval
 **Phase / position:** Phase 0, module 0 in ROAD-3
 **Branch:** `groundwork`
 **Depends on:** nothing
@@ -40,7 +40,7 @@ The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipe
 
 ## 10. Decisions
 - **GW-1 Repository layout.** Each repository's root is the plugin root. In `mercatus`, the master document, `decisions/`, `archive/` and `docs/` (ADRs, threat model) live in the repository and are excluded from the distributed zip (GW-10). Local clones use the repo-local git identity `sushobhan-pal <sushobhan.pal@gmail.com>` and SSH remotes.
-- **GW-2 License.** The `mercatus` repository's `LICENSE` is GPL-3.0; the plugin header says `License: GPL-3.0-or-later` with the matching `License URI`. `mercatus-pro` follows OQ-3.
+- **GW-2 License.** The `mercatus` repository's `LICENSE` is GPL-3.0; the plugin header says `License: GPL-3.0-or-later` with the matching `License URI`. `mercatus-pro` uses the same license, header and GPL-3.0 `LICENSE` file.
 - **GW-3 PHP tooling.**
   - Composer with PHP platform 8.2.
   - PHPUnit at the highest major version the WordPress integration test bootstrap supports when the scaffold is built, so the unit and integration suites share one version.
@@ -52,11 +52,11 @@ The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipe
 - **GW-5 Test environment (TEST-4).** `compose.yaml` defines:
   - a WordPress service whose PHP version is a build argument;
   - one database profile per supported database: `mysql-8.0`, `mysql-8.4`, `mariadb-10.6`, `mariadb-10.11`, `mariadb-11.4`;
-  - cache profiles `redis` and `memcached` (none means neither profile), with the matching object-cache drop-in installed (OQ-1);
+  - cache profiles `redis` and `memcached` (none means neither profile). `redis` installs the Redis Object Cache drop-in; `memcached` installs Automattic's `wp-memcached` drop-in with the PECL `memcache` extension;
   - a WP-CLI service that installs the WordPress and WooCommerce versions under test.
 
   Test commands run inside the WordPress service, so a CI combination is reproduced locally with one `docker compose --profile … up`.
-- **GW-6 CI matrix (GitHub Actions).** The master document fixes the database × cache matrix but not PHP versions, so CI also covers PHP 8.2 (the minimum) and the latest stable PHP.
+- **GW-6 CI matrix (GitHub Actions).** The master document fixes the database × cache matrix but not PHP versions, so CI also covers PHP 8.2 (the minimum) and "latest PHP": the newest version that both WordPress and WooCommerce officially support. A non-blocking job also runs the next PHP version, so problems show up early without failing pull requests.
   - **Every pull request:** PHPCS, PHPStan, Deptrac, PHP unit tests and Jest, plus two integration legs:
     - *minimum:* PHP 8.2, WordPress 6.6, WooCommerce 9.2, MySQL 8.0, no persistent cache;
     - *latest:* latest PHP, latest WordPress and WooCommerce, MariaDB 11.4, Redis.
@@ -69,12 +69,10 @@ The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipe
 - **GW-9 ADR and threat model.** `docs/architecture/decisions/0001-api-first-modular-monolith.md` records the core architecture choice. `docs/security/threat-model.md` lists STRIDE and OWASP API Top 10 threats per actor and surface, each mapped to a test in `tests/Security/`.
 - **GW-10 Build and distribution.** A build script runs `npm run build`, then `composer install --no-dev` with Strauss, then `wp dist-archive`, which honours `.distignore`. The zip excludes tests, docs, decisions, archive, `compose.yaml`, `.github/` and other development files.
 - **GW-11 `mercatus-pro` scaffold.** Same tooling as GW-3 to GW-5. Its Composer setup resolves `Mercatus\Core\Contracts\*` from the `mercatus` repository for static analysis and tests only, never shipping it (ARCH-4).
+- **GW-12 Branch protection by convention.** The account is on GitHub Free, which offers no branch protection on private repositories. ROAD-4's protected `main` is therefore kept by convention: no direct pushes, and changes reach `main` only through pull requests with green CI. Technical protection is switched on when the free plugin's repository goes public or the plan changes.
 
 ## 11. Open questions
-- **OQ-1 Memcached drop-in.** Which object-cache drop-in backs the `memcached` profile? *Recommendation:* a maintained drop-in built on the `memcached` PECL extension, chosen while building `compose.yaml` and recorded here before approval of the CI work.
-- **OQ-2 Branch protection.** ROAD-4 says `main` is protected, but GitHub only offers branch protection on private repositories with a paid plan (GitHub Pro or above). *Recommendation:* if the account has it, require a pull request and the PR CI checks on `main`. If not, keep the rule by convention until the repository goes public or the plan changes.
-- **OQ-3 Pro license.** *Recommendation:* GPL-3.0, like Core. WordPress plugins are GPL-derived, and one license keeps both packages consistent.
-- **OQ-4 Latest PHP.** *Recommendation:* "latest stable PHP" means the newest PHP release that WordPress supports at scaffold time (currently 8.5), re-checked whenever the CI matrix is touched.
+None.
 
 ## 12. Done when
 - Both repositories have `main` with the scaffold; CI is green on a pull request, on `main` and nightly.
