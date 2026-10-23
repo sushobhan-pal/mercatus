@@ -52,7 +52,7 @@ The seeder command skeleton (`wp mercatus seed:scale`) and the nightly dump pipe
 - **GW-5 Test environment (TEST-4).** `compose.yaml` defines:
   - a WordPress service whose PHP version is a build argument;
   - one database profile per supported database: `mysql-8.0`, `mysql-8.4`, `mariadb-10.6`, `mariadb-10.11`, `mariadb-11.4`;
-  - cache profiles `redis` and `memcached` (none means neither profile). `redis` installs the Redis Object Cache drop-in; `memcached` installs Automattic's `wp-memcached` drop-in with the PECL `memcache` extension, loaded through a test-only wrapper that adds `wp_cache_flush_runtime()` (the WordPress test suite calls it between tests and `wp-memcached` 4.0.0 doesn't define it);
+  - cache profiles `redis` and `memcached` (none means neither profile). `redis` installs the Redis Object Cache drop-in; `memcached` installs Automattic's `wp-memcached` drop-in with the PECL `memcache` extension (on PHP versions that extension builds for; elsewhere the profile stops with a clear message), loaded through a test-only wrapper that adds `wp_cache_flush_runtime()` (the WordPress test suite calls it between tests and `wp-memcached` 4.0.0 doesn't define it);
   - a WP-CLI service that installs the WordPress and WooCommerce versions under test.
 
   Test commands run inside the WordPress service, so a CI combination is reproduced locally with one `docker compose --profile … up`.

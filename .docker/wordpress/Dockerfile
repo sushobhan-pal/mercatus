@@ -9,7 +9,8 @@ ARG REDIS_CACHE_VERSION=latest-stable
 ARG WP_MEMCACHED_REF=4.0.0
 
 # Everything is fetched over HTTPS (Debian's mirror and the PECL packages): some networks block outbound
-# plain HTTP, and older images' PECL clients still read their channel over it.
+# plain HTTP, and older images' PECL clients still read their channel over it. PECL memcache lags behind new
+# PHP releases, so it's optional: without it the image still builds and the memcached profile reports it.
 RUN set -eux; \
 	for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources; do \
 		if [ -f "$sources" ]; then sed -i 's#http://deb.debian.org#https://deb.debian.org#g' "$sources"; fi; \
@@ -18,8 +19,13 @@ RUN set -eux; \
 	apt-get install -y --no-install-recommends $PHPIZE_DEPS unzip zlib1g-dev; \
 	curl -fsSL https://pecl.php.net/get/redis -o /tmp/redis.tgz; \
 	curl -fsSL https://pecl.php.net/get/memcache -o /tmp/memcache.tgz; \
-	pecl install /tmp/redis.tgz /tmp/memcache.tgz; \
-	docker-php-ext-enable redis memcache; \
+	pecl install /tmp/redis.tgz; \
+	docker-php-ext-enable redis; \
+	if pecl install /tmp/memcache.tgz; then \
+		docker-php-ext-enable memcache; \
+	else \
+		echo "PECL memcache does not build on PHP ${PHP_VERSION}; the memcached profile is unavailable in this image." >&2; \
+	fi; \
 	rm -rf /var/lib/apt/lists/* /tmp/pear /tmp/redis.tgz /tmp/memcache.tgz
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
