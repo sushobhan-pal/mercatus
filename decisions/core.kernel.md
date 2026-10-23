@@ -196,6 +196,15 @@ Unmet requirements, pending migrations and drifted migration checksums show as w
   - A module's settings record is loaded when its settings are registered at boot. The first boot creates it; later boots read it from autoloaded options without a query.
   - Version constraints use Composer's syntax, ignoring pre-release suffixes, through the kernel's own small parser, so Mercatus ships no extra runtime library.
   - Errors are `DomainError` codes in the shared kernel (ARCH-7). PHPCS's exception-escaping sniff is off because Mercatus never prints exception messages.
+- **KER-19 Cache adapters (ticket 7).**
+  - `WpCachePort` stores every value in a small envelope with an optional soft expiry, so `false` is storable and a miss is unambiguous. Keys carry their group's revision, so `flushGroup()` is a revision bump (PLAT-5).
+  - Revision pointers are seeded from the clock in milliseconds. A seconds seed could be overtaken by a burst of bumps within one second, letting an evicted pointer come back below an old value.
+  - A per-request memory layer saves repeat round trips. `forgetRequestMemory()` lets long-running workers drop it between jobs.
+  - Without coordination, a stale value is recomputed, not served.
+  - Locks carry a token, so a request releases only its own lock.
+  - `VersionedCacheKeyResolver` and `Revision` build PLAT-5 keys and hash long or unsafe ones.
+  - Integration tests for one backend carry a `cache-<mode>` group, and the runner leaves out the other backends' groups.
+  - `CacheFlushAuthorizationTest` comes with the cache-flush route in ticket 8.
 
 ## 11. Open questions
 None. All six were answered on 2026-10-23 and are recorded as KER-11 and KER-13 to KER-17.

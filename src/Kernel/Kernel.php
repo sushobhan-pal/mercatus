@@ -9,7 +9,11 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Kernel;
 
+use Mercatus\Core\Contracts\Cache\CachePort;
+use Mercatus\Core\Contracts\Cache\CoordinationPort;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
+use Mercatus\Core\Infrastructure\Cache\WpCachePort;
+use Mercatus\Core\Infrastructure\Cache\WpCoordinationPort;
 use Mercatus\Core\Kernel\Features\FeatureManifest;
 use Mercatus\Core\Kernel\Features\FeatureManifestCompiler;
 use Mercatus\Core\Kernel\Modules\CoreModules;
@@ -21,6 +25,8 @@ use Mercatus\Core\Kernel\Modules\ModuleStateStore;
 use Mercatus\Core\Kernel\Settings\OptionSettingsStore;
 use Mercatus\Core\Kernel\Settings\SettingsRegistry;
 use Mercatus\Core\Kernel\Settings\SettingsStore;
+use Mercatus\Core\Shared\Clock\Clock;
+use Mercatus\Core\Shared\Clock\SystemClock;
 
 /**
  * On `plugins_loaded`: checks the stack, collects Core's and add-ons' modules, decides which load, registers
@@ -75,6 +81,10 @@ final class Kernel {
 		$container = new Container();
 		$container->instance( ModuleStateStore::class, new KernelOption() );
 		$container->instance( SettingsStore::class, new OptionSettingsStore() );
+		$container->instance( Clock::class, new SystemClock() );
+		// Built on first use, so boot itself never touches the cache (PLAT-3, KER-6).
+		$container->factory( CoordinationPort::class, static fn( Container $services ): CoordinationPort => new WpCoordinationPort( $services->get( Clock::class ) ) );
+		$container->factory( CachePort::class, static fn( Container $services ): CachePort => new WpCachePort( $services->get( Clock::class ), $services->get( CoordinationPort::class ) ) );
 		$kernel = new self( $container, $version );
 		$container->instance( self::class, $kernel );
 

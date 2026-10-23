@@ -28,4 +28,12 @@ if [ ! -f vendor/autoload.php ]; then
 	composer install --no-interaction --no-progress
 fi
 
-exec vendor/bin/phpunit -c phpunit-integration.xml.dist "$@"
+# Tests for one cache backend carry a cache-<mode> group; leave out the other backends' tests.
+other_modes=()
+for mode in none redis memcached; do
+	if [ "$mode" != "${CACHE_MODE:-none}" ]; then
+		other_modes+=("cache-$mode")
+	fi
+done
+
+exec vendor/bin/phpunit -c phpunit-integration.xml.dist --exclude-group "$(IFS=,; echo "${other_modes[*]}")" "$@"
