@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23 · **Ticket:** Groundwork 5 (ROAD-5) · **Rules:** OPEN-1, TAX-5 to TAX-8, TAX-12, DATA-2
 **Environment:** WordPress 7.1.3, WooCommerce 11.2.1 with HPOS, PHP 8.4, MariaDB 11.4 (the Docker test environment, GW-5)
-**Status:** Decided: option (a), approved by the product owner and recorded in master v2.5 (TAX-5, TAX-8, TAX-12, DATA-2, G-DB-4). This report is the evidence; the rules live in the master document. The CI guard is `tests/Integration/Tax/UnregisteredTaxClassLookupTest.php`.
+**Status:** Decided: option (a), approved by the product owner and recorded in master v2.5 (TAX-5, TAX-8, TAX-12, DATA-2, G-DB-4), with the class naming corrected in v2.6. This report is the evidence; the rules live in the master document. The CI guard is `tests/Integration/Tax/UnregisteredTaxClassLookupTest.php`.
 
 ## The question
 
@@ -66,7 +66,10 @@ The costs of (a), all manageable:
 - **Vendor rows are visible through the WooCommerce REST API** (`GET /wc/v3/taxes`), which only administrators can use. They don't appear on WooCommerce's tax settings screens, which list registered classes only.
 - **Every vendor rate edit invalidates WooCommerce's whole `taxes` cache group.** Vendors edit rates rarely.
 
-## Master changes (v2.5)
+## Master changes (v2.5, v2.6)
+
+**Naming (v2.6):** the spike's class names (`mercatus-v1`, `mercatus-v12`) all share the 10 characters WooCommerce indexes in `tax_rate_class` (`KEY tax_rate_class (tax_rate_class(10))`), so the index can't tell vendors apart. v2.6 renames them `mv{vendor_id}` and `mv{vendor_id}-{tax-class-slug}`, which gives each vendor with an ID of up to 8 digits its own index prefix (TAX-12).
+
 
 - **TAX-12:**
   - Vendor rates are rows in `woocommerce_tax_rates` under per-vendor classes that are never registered.
