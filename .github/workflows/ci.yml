@@ -1,0 +1,102 @@
+# CI (TEST-4, GW-6). Pull requests run static checks, fast tests and two integration legs; main and the
+# nightly run add the full database x cache matrix. The next-PHP leg never blocks.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # "Latest PHP" is the newest PHP both WordPress and WooCommerce officially support; "next PHP" runs non-blocking (GW-6).
+  LATEST_WORDPRESS_TAG: php8.4-apache
+  NEXT_WORDPRESS_TAG: php8.5-apache
+  # Minimum supported versions (PLAT-1).
+  MINIMUM_WORDPRESS_TAG: 6.6-php8.2-apache
+  MINIMUM_WOOCOMMERCE: 9.2.0
+
+jobs:
+  php:
+    name: PHP checks and fast tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+      - run: composer lint
+      - run: composer analyse
+      - run: composer deptrac
+      - run: composer test
+
+  js:
+    name: JS checks, tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:js
+      - run: npm run lint:css
+      - run: npm run lint:openapi
+      - run: npm run test:unit
+      - run: npm run build
+
+  integration-matrix:
+    name: Choose integration combinations
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.matrix.outputs.include }}
+    steps:
+      - id: matrix
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          leg() {
+            jq -nc --arg name "$1" --arg tag "$2" --arg wc "$3" --arg db "$4" --arg cache "$5" --argjson experimental "$6" \
+              '{name: $name, wordpress_tag: $tag, woocommerce: $wc, database: $db, cache: $cache, experimental: $experimental}'
+          }
+          legs=("$(leg minimum "$MINIMUM_WORDPRESS_TAG" "$MINIMUM_WOOCOMMERCE" mysql-8.0 none false)")
+          if [ "$EVENT" = "pull_request" ]; then
+            legs+=("$(leg latest "$LATEST_WORDPRESS_TAG" latest-stable mariadb-11.4 redis false)")
+          else
+            for database in mysql-8.0 mysql-8.4 mariadb-10.6 mariadb-10.11 mariadb-11.4; do
+              for cache in none redis memcached; do
+                legs+=("$(leg "latest, $database, $cache" "$LATEST_WORDPRESS_TAG" latest-stable "$database" "$cache" false)")
+              done
+            done
+          fi
+          legs+=("$(leg "next PHP" "$NEXT_WORDPRESS_TAG" latest-stable mariadb-11.4 redis true)")
+          echo "include=$(printf '%s\n' "${legs[@]}" | jq -sc .)" >> "$GITHUB_OUTPUT"
+
+  integration:
+    name: Integration (${{ matrix.name }})
+    needs: integration-matrix
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.integration-matrix.outputs.include) }}
+    env:
+      WORDPRESS_TAG: ${{ matrix.wordpress_tag }}
+      WOOCOMMERCE_VERSION: ${{ matrix.woocommerce }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: bin/test-integration.sh "${{ matrix.database }}" "${{ matrix.cache }}"

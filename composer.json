@@ -1,0 +1,76 @@
+{
+	"name": "sushobhan-pal/mercatus",
+	"description": "API-first multivendor marketplace for WooCommerce.",
+	"type": "wordpress-plugin",
+	"license": "GPL-3.0-or-later",
+	"require": {
+		"php": ">=8.2"
+	},
+	"autoload": {
+		"psr-4": {
+			"Mercatus\\Core\\": "src/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Mercatus\\Core\\Tests\\": "tests/"
+		}
+	},
+	"config": {
+		"platform": {
+			"php": "8.2.0"
+		},
+		"sort-packages": true,
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true,
+			"phpstan/extension-installer": true
+		}
+	},
+	"extra": {
+		"strauss": {
+			"target_directory": "vendor-prefixed",
+			"namespace_prefix": "Mercatus\\Core\\Vendor\\",
+			"classmap_prefix": "Mercatus_Core_Vendor_",
+			"constant_prefix": "MERCATUS_CORE_VENDOR_",
+			"delete_vendor_packages": false
+		}
+	},
+	"scripts": {
+		"lint": "phpcs",
+		"lint:fix": "phpcbf",
+		"analyse": "phpstan analyse --memory-limit=1G",
+		"deptrac": "deptrac analyse --no-progress",
+		"test": "phpunit",
+		"test:unit": "phpunit --testsuite unit",
+		"test:architecture": "phpunit --testsuite architecture",
+		"test:contract": "phpunit --testsuite contract",
+		"test:security": "phpunit --testsuite security",
+		"test:integration": "phpunit -c phpunit-integration.xml.dist",
+		"openapi:update": [
+			"Composer\\Config::disableProcessTimeout",
+			"MERCATUS_UPDATE_OPENAPI=1 bin/test-integration.sh mariadb-11.4 none --filter OpenApiSchemaConformanceTest"
+		],
+		"prefix-namespaces": "strauss",
+		"check": [
+			"@lint",
+			"@analyse",
+			"@deptrac",
+			"@test"
+		]
+	},
+	"require-dev": {
+		"brianhenryie/strauss": "^0.31",
+		"deptrac/deptrac": "^4.7",
+		"nikic/php-parser": "^5.0",
+		"php-stubs/woocommerce-stubs": "^11.2",
+		"php-stubs/wordpress-tests-stubs": "^7.1",
+		"phpcompatibility/phpcompatibility-wp": "^2.1",
+		"phpstan/extension-installer": "^1.4",
+		"phpstan/phpstan": "^2.1",
+		"phpunit/phpunit": "^9.6",
+		"symfony/yaml": "^7.3",
+		"szepeviktor/phpstan-wordpress": "^2.0",
+		"wp-coding-standards/wpcs": "^3.4",
+		"yoast/phpunit-polyfills": "^1.1"
+	}
+}

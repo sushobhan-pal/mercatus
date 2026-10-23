@@ -1,0 +1,50 @@
+# Generated from the registered mercatus/v1 routes by tests/Contract/OpenApiSchemaConformanceTest.php.
+# Don't edit by hand: run `composer openapi:update` and commit the result (DRY-1).
+openapi: 3.1.0
+info:
+  title: 'Mercatus REST API'
+  version: v1
+  description: 'Marketplace API under /wp-json/mercatus/v1. Errors use the envelope in components.schemas.Error.'
+  license:
+    name: GPL-3.0-or-later
+    identifier: GPL-3.0-or-later
+servers:
+  -
+    url: /wp-json/mercatus/v1
+paths: {  }
+components:
+  schemas:
+    Error:
+      type: object
+      description: 'Error envelope (API-1).'
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: 'Machine-readable code; mercatus_* for Mercatus errors.'
+        message:
+          type: string
+        details:
+          type: object
+        request_id:
+          type: string
+          description: 'req_* identifier to quote in support requests and logs.'
+  responses:
+    Error:
+      description: Error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  securitySchemes:
+    cookieNonce:
+      type: apiKey
+      in: header
+      name: X-WP-Nonce
+      description: 'WordPress login cookie plus a wp_rest nonce.'
+    applicationPassword:
+      type: http
+      scheme: basic
+      description: 'WordPress application password.'
