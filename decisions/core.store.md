@@ -1,6 +1,6 @@
 # `core.store` — Decision File
 
-**Status:** Draft
+**Status:** Approved (2026-10-24)
 **Phase / position:** Phase 2, module 4 in ROAD-3 (the last module of Phase 2)
 **Branch:** `core.store`
 **Depends on:** `core.vendor` (module 3)
