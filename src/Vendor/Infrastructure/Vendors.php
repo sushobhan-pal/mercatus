@@ -261,6 +261,45 @@ final class Vendors implements VendorDirectory {
 	}
 
 	/**
+	 * Erases a user's personal data where nothing depends on it (VEN-9, SEC-7): the store names, answers and
+	 * reasons of attempts that were rejected or withdrawn. A pending attempt waits for its decision, and a
+	 * vendor's approved attempt and vendor row stay, because orders and money refer to them. Repeating it
+	 * removes nothing more.
+	 *
+	 * @param int $user_id User.
+	 * @return array{removed: int, pending: bool, vendor: bool} How many attempts were anonymised, and what was kept.
+	 */
+	public function erasePersonalData( int $user_id ): array {
+		$deleted  = wp_privacy_anonymize_data( 'text' );
+		$history  = $this->applications->history( $user_id );
+		$erasable = array_filter( $history, static fn( VendorApplication $attempt ): bool => in_array( $attempt->status, array( VendorLifecycles::REJECTED, VendorLifecycles::WITHDRAWN ), true ) && $attempt->storeName !== $deleted );
+		$removed  = 0;
+		if ( array() !== $erasable ) {
+			$removed = $this->transactions->run(
+				function () use ( $erasable, $deleted ): int {
+					$removed = 0;
+					foreach ( $erasable as $attempt ) {
+						$answers = array_map( static fn( array $answer ): array => array( 'answer' => null ) + $answer, $attempt->answers );
+						if ( $this->applications->anonymise( $attempt->id, $deleted, $answers, $this->clock->now() ) ) {
+							$this->audit->record( 'vendor_application.anonymised', 'vendor_application', $attempt->id );
+							++$removed;
+						}
+					}
+
+					return $removed;
+				}
+			);
+			$this->changed( $user_id );
+		}
+
+		return array(
+			'removed' => $removed,
+			'pending' => array() !== array_filter( $history, static fn( VendorApplication $attempt ): bool => VendorLifecycles::PENDING === $attempt->status ),
+			'vendor'  => null !== $this->vendors->byUserId( $user_id ),
+		);
+	}
+
+	/**
 	 * Closes a deleted user's vendor and withdraws their pending application (VEN-1).
 	 *
 	 * @param int $user_id The deleted user.

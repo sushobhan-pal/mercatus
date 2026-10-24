@@ -16,6 +16,9 @@ use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Identity\Application\IdentityResolver;
 use Mercatus\Core\Identity\Application\ModuleExtensions;
 use Mercatus\Core\Identity\Infrastructure\ManagerAppointments;
+use Mercatus\Core\Shared\Clock\Clock;
+use Mercatus\Core\Vendor\Domain\VendorLifecycles;
+use Mercatus\Core\Vendor\Infrastructure\VendorStore;
 use WP_UnitTestCase;
 use WP_User;
 
@@ -34,16 +37,32 @@ final class CachedActorIdentityInvalidationTest extends WP_UnitTestCase {
 	}
 
 	public function testASuspendedVendorLosesTheirStoreOnceTheRevisionMoves(): void {
-		$user_id = $this->userAs( 'vendor_owner' );
-		$this->assertSame( 12, $this->nextRequest()->resolve( $user_id )->vendorId );
+		$user_id   = $this->userAs( 'vendor_owner' );
+		$vendor_id = self::vendorOf( $user_id );
+		$this->assertSame( $vendor_id, $this->nextRequest()->resolve( $user_id )->vendorId );
 
-		delete_user_meta( $user_id, 'mercatus_test_vendor' );
-		$this->assertSame( 12, $this->nextRequest()->resolve( $user_id )->vendorId, 'Without a bump the cached identity stays.' );
+		// A status change that forgets the bump, as a careless module would write it.
+		$vendors = self::kernel()->container()->get( VendorStore::class );
+		$vendors->transition( $vendor_id, 1, VendorLifecycles::SUSPENDED, 'Testing', self::kernel()->container()->get( Clock::class )->now() );
+		$this->assertSame( $vendor_id, $this->nextRequest()->resolve( $user_id )->vendorId, 'Without a bump the cached identity stays.' );
 
 		self::kernel()->container()->get( IdentityRevisions::class )->bump( $user_id );
 		$identity = $this->nextRequest()->resolve( $user_id );
 		$this->assertSame( ActorType::Customer, $identity->type );
 		$this->assertNull( $identity->vendorId );
+	}
+
+	public function testSuspendingThroughTheEndpointTakesEffectInTheSameRequest(): void {
+		$user_id   = $this->userAs( 'vendor_owner' );
+		$vendor_id = self::vendorOf( $user_id );
+		$this->nextRequest()->resolve( $user_id );
+
+		wp_set_current_user( $this->userAs( 'administrator' ) );
+		$request = new \WP_REST_Request( 'POST', '/mercatus/v1/vendors/' . $vendor_id . '/suspend' );
+		$request->set_body_params( array( 'reason' => 'Late shipments' ) );
+		$this->assertSame( 200, rest_do_request( $request )->get_status() );
+
+		$this->assertSame( ActorType::Customer, $this->nextRequest()->resolve( $user_id )->type, 'Suspending bumps the identity (TM-8).' );
 	}
 
 	public function testARoleChangeInWordPressResolvesAfresh(): void {

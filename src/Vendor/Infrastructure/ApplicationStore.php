@@ -93,6 +93,22 @@ final class ApplicationStore {
 	}
 
 	/**
+	 * Replaces the personal data of a decided attempt that led nowhere (rejected or withdrawn) with the given
+	 * anonymised values, and drops its reason (VEN-9).
+	 *
+	 * @param int                                                                         $id         ID.
+	 * @param string                                                                      $store_name Anonymised store name.
+	 * @param list<array{id: string, label: string, type: string, answer: string|bool|null}> $answers    Answers with their values removed.
+	 * @param DateTimeImmutable                                                           $now        Current time.
+	 */
+	public function anonymise( int $id, string $store_name, array $answers, DateTimeImmutable $now ): bool {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the module's own table.
+		$updated = $this->db->query( self::prepared( $this->db, "UPDATE %i SET store_name = %s, answers = %s, reason = NULL, updated_at = %s, version = version + 1 WHERE id = %d AND status IN ('rejected', 'withdrawn')", $this->table(), $store_name, (string) wp_json_encode( $answers ), EventPayloadSerializer::format( $now ), $id ) );
+
+		return 1 === $updated;
+	}
+
+	/**
 	 * One page of the review queue, with one extra row to tell whether more follow.
 	 *
 	 * @param ListRequest $request Validated list request; sorted by id.

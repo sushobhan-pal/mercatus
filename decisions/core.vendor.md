@@ -248,6 +248,25 @@ Routes follow API-1 through the base REST controller and the route pipeline (IDN
   - **JS tests:** Vitest in jsdom, set up as the wp-scripts migration guide describes (`vitest.config.mjs`, `tests/Js/`). React 18.3 is pinned to match WordPress 6.6.
   - **Approval email:** it now links to the dashboard.
 
+- **VEN-20 Privacy and scale (increment 3).**
+  - **Export and erase (VEN-9, TM-33):** `VendorPrivacy` joins WordPress's Export and Erase Personal Data tools as "Marketplace vendor".
+    - The export lists every attempt (status, store name, each answer under the label it was asked with, the reason and the dates) and the vendor account.
+    - The eraser anonymises rejected and withdrawn attempts: the store name becomes WordPress's `[deleted]`, the answers lose their values but keep their questions, and the reason goes. Each anonymised attempt gets a `vendor_application.anonymised` audit entry.
+    - A pending attempt is kept until it's decided, and a vendor's approved attempt and account are kept; the eraser says which and why. Repeating it removes nothing more.
+  - **Seeder step:** `database/seeders/steps/core.vendor.php` creates the PLAT-10 vendors as customers who apply through the registration command with automatic approval switched on, so each has the rows, events and audit entries a real approval writes.
+    - Store names and phone numbers come from the step's own random sequence (KER-12).
+    - Emails are off and password hashing is cheap while it runs, and automatic approval is put back afterwards.
+    - The full 2,000 vendors seed in about two minutes.
+  - **Ceilings, measured with and without a persistent cache:**
+    - A vendor's identity: 1 query cold (`vendors.user_id`), 0 warm.
+    - One page of `GET /vendor-applications` or `GET /vendors`: 1.
+    - `GET /vendor-applications/{id}` with its history: 2.
+    - Approving: 13, whatever the number of vendors: the attempt and the existing-vendor check (2), the transaction (6), the committing request's outbox claim, read and finish (3), the approval email's read (1) and the response's (1). The scenario approves applications created before counting starts.
+  - **`pro.testactors` retired (IDN-20):**
+    - Test vendor owners are now real vendors (an approved first attempt and its vendor row), read by `VendorClaimSource`.
+    - `CachedActorIdentityInvalidationTest` changes a vendor's status without a bump to show the cached identity stays, and checks that suspending through the endpoint takes effect in the same request (TM-8).
+    - The test-only staff and manager-scope claims go with it; Pro brings the real ones.
+
 ## 11. Open questions
 None. All seven were answered on 2026-10-24 and are recorded as VEN-11 to VEN-17.
 

@@ -13,8 +13,8 @@ use Mercatus\Core\Contracts\Module\ModuleHooks;
 
 /**
  * Deleting a WordPress user closes their vendor and withdraws a pending application; the module's emails join
- * WooCommerce's. The dashboard page replaces the theme on its page and its translations, and wp-admin gets one
- * link to it (ARCH-13, VEN-15).
+ * WooCommerce's, and its personal data joins WordPress's export and erase tools (VEN-9). The dashboard page
+ * replaces the theme on its page and its translations, and wp-admin gets one link to it (ARCH-13, VEN-15).
  */
 final class VendorHooks implements ModuleHooks {
 
@@ -23,12 +23,15 @@ final class VendorHooks implements ModuleHooks {
 	 *
 	 * @param Vendors       $vendors   Vendor commands.
 	 * @param DashboardPage $dashboard The dashboard page.
+	 * @param VendorPrivacy $privacy   The personal-data exporter and eraser.
 	 */
-	public function __construct( private Vendors $vendors, private DashboardPage $dashboard ) {}
+	public function __construct( private Vendors $vendors, private DashboardPage $dashboard, private VendorPrivacy $privacy ) {}
 
 	public function register(): void {
 		add_action( 'deleted_user', array( $this, 'userDeleted' ) );
 		add_filter( 'woocommerce_email_classes', array( $this, 'emails' ) );
+		add_filter( 'wp_privacy_personal_data_exporters', array( $this->privacy, 'exporters' ) );
+		add_filter( 'wp_privacy_personal_data_erasers', array( $this->privacy, 'erasers' ) );
 		add_action( 'admin_init', array( $this, 'adminInit' ) );
 		add_action( 'admin_menu', array( $this, 'adminMenu' ) );
 		add_action( 'template_redirect', array( $this->dashboard, 'redirect' ) );

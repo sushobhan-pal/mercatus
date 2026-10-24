@@ -67,7 +67,7 @@ final class MeEndpointContractTest extends WP_UnitTestCase {
 		$data = $this->data( $this->me( 'vendor_owner' ) );
 
 		$this->assertSame( 'vendor_owner', $data['actor']['type'] );
-		$this->assertSame( 12, $data['actor']['vendor_id'] );
+		$this->assertSame( self::vendorOf( get_current_user_id() ), $data['actor']['vendor_id'] );
 		$this->assertMatchesSchema( $data );
 	}
 

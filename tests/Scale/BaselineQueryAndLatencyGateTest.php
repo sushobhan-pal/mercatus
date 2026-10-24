@@ -13,6 +13,7 @@ use Closure;
 use Mercatus\Core\Database\Seeders\ScaleBenchmarkSeeder;
 use Mercatus\Core\Tests\Scale\Scenarios\IdentityScenarios;
 use Mercatus\Core\Tests\Scale\Scenarios\KernelScenarios;
+use Mercatus\Core\Tests\Scale\Scenarios\VendorScenarios;
 use Mercatus\Core\Tests\Scale\Support\ScaleReport;
 use Mercatus\Core\Tests\Scale\Support\ScaleScenario;
 use PHPUnit\Framework\TestCase;
@@ -48,7 +49,7 @@ final class BaselineQueryAndLatencyGateTest extends TestCase {
 	 */
 	public static function scenarios(): array {
 		$scenarios = array();
-		foreach ( array_merge( KernelScenarios::all(), IdentityScenarios::all() ) as $scenario ) {
+		foreach ( array_merge( KernelScenarios::all(), IdentityScenarios::all(), VendorScenarios::all() ) as $scenario ) {
 			$scenarios[ $scenario->id ] = array( $scenario );
 		}
 
