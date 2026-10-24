@@ -1,6 +1,6 @@
 # `core.identity` — Decision File
 
-**Status:** Approved (2026-10-24)
+**Status:** Implemented (2026-10-24)
 **Phase / position:** Phase 1, module 2 in ROAD-3
 **Branch:** `core.identity`
 **Depends on:** `core.kernel` (module 1)
