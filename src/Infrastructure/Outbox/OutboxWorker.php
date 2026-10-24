@@ -19,7 +19,10 @@ use Mercatus\Core\Shared\Id\Uuid;
  */
 final class OutboxWorker {
 
-	public const BATCH = 100;
+	/**
+	 * Events claimed per batch (API-3).
+	 */
+	public const BATCH = 200;
 
 	public const LEASE_SECONDS = 60;
 
