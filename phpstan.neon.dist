@@ -3,12 +3,15 @@ parameters:
 	paths:
 		- mercatus.php
 		- src
+		- database
 		- tests
 	excludePaths:
 		- tests/Architecture/Fixtures
 	scanFiles:
 		- vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
 		- vendor/php-stubs/wordpress-tests-stubs/wordpress-tests-stubs.php
+		- .phpstan/wp-cli.php
+		- .phpstan/action-scheduler.php
 	ignoreErrors:
 		# The integration bootstrap enables HPOS through WooCommerce internals that the published stubs leave out.
 		-

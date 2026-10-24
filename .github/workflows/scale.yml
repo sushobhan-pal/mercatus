@@ -1,0 +1,72 @@
+# Scale suite (PLAT-10, TEST-1 Layer 6, KER-12, KER-17): weekly, on demand, and on pull requests labelled
+# `scale`. The seeded dump lives in the Actions cache, keyed by a hash of the seeders and the pipeline, and is
+# rebuilt only when they change. Query ceilings fail the run; latency goes to the job summary and artifacts.
+name: Scale
+
+on:
+  schedule:
+    - cron: '30 2 * * 0'
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  WORDPRESS_TAG: php8.4-apache
+  WOOCOMMERCE_VERSION: latest-stable
+
+jobs:
+  dump:
+    name: Seeded dump
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'scale')
+    runs-on: ubuntu-latest
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: key
+        run: echo "key=mercatus-scale-${{ hashFiles('database/seeders/**', 'bin/scale.sh', '.docker/wordpress/**') }}" >> "$GITHUB_OUTPUT"
+      - id: cached
+        uses: actions/cache/restore@v6
+        with:
+          path: artifacts/scale/mercatus-scale.sql.gz
+          key: ${{ steps.key.outputs.key }}
+          lookup-only: true
+      - if: steps.cached.outputs.cache-hit != 'true'
+        run: bin/scale.sh dump
+      - if: steps.cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: artifacts/scale/mercatus-scale.sql.gz
+          key: ${{ steps.key.outputs.key }}
+
+  scale:
+    name: Scale (${{ matrix.cache }} cache)
+    needs: dump
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cache: [none, redis]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache/restore@v6
+        with:
+          path: artifacts/scale/mercatus-scale.sql.gz
+          key: ${{ needs.dump.outputs.key }}
+          fail-on-cache-miss: true
+      - run: bin/scale.sh test "${{ matrix.cache }}"
+      - if: always()
+        run: cat artifacts/scale/baseline-*.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scale-baseline-${{ matrix.cache }}
+          path: artifacts/scale/baseline-*
+          if-no-files-found: ignore

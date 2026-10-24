@@ -1,5 +1,6 @@
 # CI (TEST-4, GW-6). Pull requests run static checks, fast tests and two integration legs; main and the
-# nightly run add the full database x cache matrix. The next-PHP leg never blocks.
+# nightly run add the full database x cache matrix. The nightly run is skipped when main hasn't changed since
+# the last one (KER-17). The next-PHP leg never blocks. The scale suite has its own workflow, scale.yml.
 name: CI
 
 on:
@@ -26,48 +27,29 @@ env:
   MINIMUM_WOOCOMMERCE: 9.2.0
 
 jobs:
-  php:
-    name: PHP checks and fast tests
+  plan:
+    name: Plan the run
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          coverage: none
-          tools: composer:v2
-      - uses: ramsey/composer-install@v4
-      - run: composer lint
-      - run: composer analyse
-      - run: composer deptrac
-      - run: composer test
-
-  js:
-    name: JS checks, tests and build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run lint:js
-      - run: npm run lint:css
-      - run: npm run lint:openapi
-      - run: npm run test:unit
-      - run: npm run build
-
-  integration-matrix:
-    name: Choose integration combinations
-    runs-on: ubuntu-latest
+    permissions:
+      actions: read
     outputs:
-      include: ${{ steps.matrix.outputs.include }}
+      run: ${{ steps.plan.outputs.run }}
+      include: ${{ steps.plan.outputs.include }}
     steps:
-      - id: matrix
+      - id: plan
         env:
           EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$EVENT" = "schedule" ]; then
+            last="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=schedule&status=completed&per_page=1" --jq '.workflow_runs[0].head_sha // ""')"
+            if [ "$last" = "$GITHUB_SHA" ]; then
+              echo "main is unchanged since the last nightly run; nothing to do."
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
           leg() {
             jq -nc --arg name "$1" --arg tag "$2" --arg wc "$3" --arg db "$4" --arg cache "$5" --argjson experimental "$6" \
               '{name: $name, wordpress_tag: $tag, woocommerce: $wc, database: $db, cache: $cache, experimental: $experimental}'
@@ -85,15 +67,52 @@ jobs:
           legs+=("$(leg "next PHP" "$NEXT_WORDPRESS_TAG" latest-stable mariadb-11.4 redis true)")
           echo "include=$(printf '%s\n' "${legs[@]}" | jq -sc .)" >> "$GITHUB_OUTPUT"
 
+  php:
+    name: PHP checks and fast tests
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+      - run: composer lint
+      - run: composer analyse
+      - run: composer deptrac
+      - run: composer test
+
+  js:
+    name: JS checks, tests and build
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:js
+      - run: npm run lint:css
+      - run: npm run lint:openapi
+      - run: npm run test:unit
+      - run: npm run build
+
   integration:
     name: Integration (${{ matrix.name }})
-    needs: integration-matrix
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.integration-matrix.outputs.include) }}
+        include: ${{ fromJSON(needs.plan.outputs.include) }}
     env:
       WORDPRESS_TAG: ${{ matrix.wordpress_tag }}
       WOOCOMMERCE_VERSION: ${{ matrix.woocommerce }}

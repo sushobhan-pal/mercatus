@@ -13,6 +13,7 @@
 	},
 	"autoload-dev": {
 		"psr-4": {
+			"Mercatus\\Core\\Database\\Seeders\\": "database/seeders/",
 			"Mercatus\\Core\\Tests\\": "tests/"
 		}
 	},
@@ -49,6 +50,14 @@
 		"openapi:update": [
 			"Composer\\Config::disableProcessTimeout",
 			"MERCATUS_UPDATE_OPENAPI=1 bin/test-integration.sh mariadb-11.4 none --filter OpenApiSchemaConformanceTest"
+		],
+		"scale:dump": [
+			"Composer\\Config::disableProcessTimeout",
+			"bin/scale.sh dump"
+		],
+		"test:scale": [
+			"Composer\\Config::disableProcessTimeout",
+			"bin/scale.sh test"
 		],
 		"prefix-namespaces": "strauss",
 		"check": [

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Scale suite (TEST-1 Layer 6): runs against the site restored from the seeded dump; see bin/scale.sh. -->
+<phpunit
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+	bootstrap="tests/bootstrap-scale.php"
+	cacheResultFile=".phpunit.cache/scale-results"
+	colors="true"
+	beStrictAboutOutputDuringTests="true"
+	failOnRisky="true"
+	failOnWarning="true"
+>
+	<testsuites>
+		<testsuite name="scale">
+			<directory>tests/Scale</directory>
+		</testsuite>
+	</testsuites>
+</phpunit>
