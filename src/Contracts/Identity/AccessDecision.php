@@ -1,13 +1,13 @@
 <?php
 /**
- * The outcome of an access check (IDN-4, SEC-4).
+ * The outcome of an access check (IDN-4, SEC-4, VEN-2).
  *
  * @package Mercatus\Core
  */
 
 declare( strict_types=1 );
 
-namespace Mercatus\Core\Identity\Domain;
+namespace Mercatus\Core\Contracts\Identity;
 
 /**
  * Mapped to 401, 403 or 404 at the edge.

@@ -17,10 +17,12 @@ use Mercatus\Core\Contracts\Health\HealthCheck;
 use Mercatus\Core\Contracts\Http\RouteProvider;
 use Mercatus\Core\Contracts\Identity\ClaimSource;
 use Mercatus\Core\Contracts\Identity\DashboardMenuProvider;
+use Mercatus\Core\Contracts\Identity\MeSectionProvider;
 use Mercatus\Core\Contracts\Identity\PermissionProvider;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Contracts\Settings\SettingDefinition;
+use Mercatus\Core\Contracts\Settings\SettingsForm;
 use Mercatus\Core\Contracts\Settings\SettingsProvider;
 
 /**
@@ -132,7 +134,7 @@ final class ModuleManifestValidator {
 			return self::INCOMPATIBLE_CORE;
 		}
 
-		$classes = array_filter( array_merge( array( $manifest->routes, $manifest->migrations, $manifest->permissions, $manifest->dashboardMenu, $manifest->settings, $manifest->hooks ), $manifest->eventSubscribers, $manifest->healthChecks, $manifest->claimSources ) );
+		$classes = array_filter( array_merge( array( $manifest->routes, $manifest->migrations, $manifest->permissions, $manifest->dashboardMenu, $manifest->settings, $manifest->hooks, $manifest->settingsForm ), $manifest->eventSubscribers, $manifest->healthChecks, $manifest->claimSources, $manifest->meSections ) );
 		foreach ( $classes as $class ) {
 			if ( ! class_exists( $class ) ) {
 				return self::MISSING_CLASS;
@@ -153,8 +155,16 @@ final class ModuleManifestValidator {
 		if ( null !== $manifest->dashboardMenu && ! is_a( $manifest->dashboardMenu, DashboardMenuProvider::class, true ) ) {
 			return self::INVALID_CLASS;
 		}
+		if ( null !== $manifest->settingsForm && ! is_a( $manifest->settingsForm, SettingsForm::class, true ) ) {
+			return self::INVALID_CLASS;
+		}
 		foreach ( $manifest->claimSources as $source ) {
 			if ( ! is_a( $source, ClaimSource::class, true ) ) {
+				return self::INVALID_CLASS;
+			}
+		}
+		foreach ( $manifest->meSections as $section ) {
+			if ( ! is_a( $section, MeSectionProvider::class, true ) ) {
 				return self::INVALID_CLASS;
 			}
 		}

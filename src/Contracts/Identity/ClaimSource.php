@@ -20,6 +20,7 @@ interface ClaimSource {
 	 *
 	 * @param int $user_id Signed-in WordPress user.
 	 * @return list<ActorClaim>
+	 * @phpstan-impure
 	 */
 	public function claims( int $user_id ): array;
 }

@@ -12,6 +12,7 @@ namespace Mercatus\Core\Identity\Application;
 use Closure;
 use Mercatus\Core\Contracts\Identity\ClaimSource;
 use Mercatus\Core\Contracts\Identity\DashboardMenuProvider;
+use Mercatus\Core\Contracts\Identity\MeSectionProvider;
 use Mercatus\Core\Contracts\Identity\PermissionProvider;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 
@@ -69,6 +70,25 @@ final class ModuleExtensions {
 			$provider = null === $manifest->permissions ? null : ( $this->build )( $manifest->permissions );
 			if ( $provider instanceof PermissionProvider ) {
 				$providers[ $manifest->id ] = $provider;
+			}
+		}
+
+		return $providers;
+	}
+
+	/**
+	 * The `/me` section providers.
+	 *
+	 * @return list<MeSectionProvider>
+	 */
+	public function meSections(): array {
+		$providers = array();
+		foreach ( $this->active as $manifest ) {
+			foreach ( $manifest->meSections as $class_name ) {
+				$provider = ( $this->build )( $class_name );
+				if ( $provider instanceof MeSectionProvider ) {
+					$providers[] = $provider;
+				}
 			}
 		}
 

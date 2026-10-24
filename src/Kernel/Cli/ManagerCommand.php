@@ -14,8 +14,7 @@ use Mercatus\Core\Kernel\Kernel;
 use Mercatus\Core\Shared\Errors\DomainError;
 
 /**
- * `wp mercatus manager appoint <user>`, `remove <user>` and `list`. The dashboard screen arrives with the shell
- * in core.vendor.
+ * `wp mercatus manager appoint <user>`, `remove <user>` and `list`, as the dashboard's Managers screen does.
  */
 final class ManagerCommand {
 
@@ -38,7 +37,11 @@ final class ManagerCommand {
 	 */
 	public function appoint( array $args ): void {
 		$user_id = self::user( $args[0] ?? '' );
-		$this->change( fn() => $this->managers()->appoint( $user_id ) );
+		$this->change(
+			function () use ( $user_id ): void {
+				$this->managers()->appoint( $user_id );
+			}
+		);
 		\WP_CLI::success( sprintf( 'User %d is a marketplace manager.', $user_id ) );
 	}
 
@@ -62,9 +65,8 @@ final class ManagerCommand {
 	 * Lists the marketplace managers.
 	 */
 	public function listManagers(): void {
-		foreach ( $this->managers()->managers() as $user_id ) {
-			$user = get_userdata( $user_id );
-			\WP_CLI::log( sprintf( '%d %s', $user_id, false === $user ? '' : $user->user_login ) );
+		foreach ( $this->managers()->managers() as $manager ) {
+			\WP_CLI::log( sprintf( '%d %s', $manager['user_id'], $manager['email'] ) );
 		}
 	}
 

@@ -37,6 +37,8 @@ final readonly class ModuleManifest {
 	 * @param class-string|null     $settings         Declares the module's settings (a `SettingsProvider`).
 	 * @param class-string|null     $hooks            Attaches the module's WordPress hooks while it's active (`ModuleHooks`).
 	 * @param list<class-string>    $claimSources     Tell the identity resolver who users are to the module (`ClaimSource`).
+	 * @param list<class-string>    $meSections       Add sections to GET /me (`MeSectionProvider`).
+	 * @param class-string|null     $settingsForm     Labels the module's settings on the dashboard (`SettingsForm`).
 	 * @throws InvalidArgumentException When the ID, version or a requirement is malformed.
 	 */
 	public function __construct(
@@ -53,6 +55,8 @@ final readonly class ModuleManifest {
 		public ?string $settings = null,
 		public ?string $hooks = null,
 		public array $claimSources = array(),
+		public array $meSections = array(),
+		public ?string $settingsForm = null,
 	) {
 		if ( 1 !== preg_match( self::ID_PATTERN, $id ) ) {
 			throw new InvalidArgumentException( 'A module ID is core.<name> or pro.<name>, lower case.' );

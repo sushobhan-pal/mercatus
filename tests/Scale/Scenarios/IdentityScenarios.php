@@ -24,7 +24,7 @@ use WP_REST_Response;
 /**
  * Resolving the scale site's administrator as a new request would, GET /me with and without a known ETag,
  * a rate-limit check and an idempotent POST's own cost (claim, then complete). None grows with the data set;
- * a cold identity costs one indexed query per claim source once core.vendor adds one.
+ * a cold identity costs one indexed query per claim source that reads a table, as VendorScenarios measures.
  */
 final class IdentityScenarios {
 

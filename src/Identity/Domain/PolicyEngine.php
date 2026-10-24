@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Identity\Domain;
 
 use Mercatus\Core\Contracts\Http\Access;
+use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\ActorIdentity;
 use Mercatus\Core\Contracts\Identity\ActorType;
 

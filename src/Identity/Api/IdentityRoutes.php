@@ -16,6 +16,7 @@ use Mercatus\Core\Contracts\Identity\ActorType;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Identity\Application\DashboardMenuCompiler;
 use Mercatus\Core\Identity\Application\FeatureSource;
+use Mercatus\Core\Identity\Application\ModuleExtensions;
 use Mercatus\Core\Identity\Application\PermissionCatalog;
 use Mercatus\Core\Shared\Http\ETag;
 use Mercatus\Core\Shared\Http\Schema;
@@ -36,11 +37,14 @@ final class IdentityRoutes implements RouteProvider {
 	 * @param DashboardMenuCompiler $menu        Menu compiler.
 	 * @param PermissionCatalog     $permissions Permissions.
 	 * @param ApiClientRoutes       $clients     The API-client endpoints.
+	 * @param ModuleExtensions      $modules     Other modules' `/me` sections.
+	 * @param ManagerRoutes         $managers    The managers endpoints.
 	 */
-	public function __construct( private CurrentActor $actors, private FeatureSource $features, private DashboardMenuCompiler $menu, private PermissionCatalog $permissions, private ApiClientRoutes $clients ) {}
+	public function __construct( private CurrentActor $actors, private FeatureSource $features, private DashboardMenuCompiler $menu, private PermissionCatalog $permissions, private ApiClientRoutes $clients, private ModuleExtensions $modules, private ManagerRoutes $managers ) {}
 
 	public function routes( RouteRegistrar $routes ): void {
 		$this->clients->routes( $routes );
+		$this->managers->routes( $routes );
 		$routes->add(
 			'/me',
 			array(
@@ -75,11 +79,30 @@ final class IdentityRoutes implements RouteProvider {
 			'permissions' => $actor->isAdministrator() ? array_keys( $this->permissions->all() ) : $actor->permissions,
 			'features'    => $this->features->toArray( $actor->isAdministrator() ),
 			'menu'        => $this->menu->compile( $actor ),
+			'sections'    => (object) $this->sections( $actor ),
 		);
 		$response = new WP_REST_Response( $data );
 		$response->header( 'ETag', ETag::forContent( $data ) );
 
 		return $response;
+	}
+
+	/**
+	 * Other modules' sections, by ID; a module with nothing to say about the actor adds none.
+	 *
+	 * @param \Mercatus\Core\Contracts\Identity\ActorIdentity $actor Actor.
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function sections( \Mercatus\Core\Contracts\Identity\ActorIdentity $actor ): array {
+		$sections = array();
+		foreach ( $this->modules->meSections() as $provider ) {
+			$section = $provider->section( $actor );
+			if ( null !== $section ) {
+				$sections[ $provider->id() ] = $section;
+			}
+		}
+
+		return $sections;
 	}
 
 	/**
@@ -106,6 +129,10 @@ final class IdentityRoutes implements RouteProvider {
 					'items' => array( 'type' => 'string' ),
 				),
 				'features'    => $this->features->schema(),
+				'sections'    => array(
+					'type'        => 'object',
+					'description' => "Other modules' sections, keyed by module, for example vendor.",
+				),
 				'menu'        => array(
 					'type'  => 'array',
 					'items' => Schema::object(

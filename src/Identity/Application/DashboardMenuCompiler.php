@@ -11,12 +11,13 @@ namespace Mercatus\Core\Identity\Application;
 
 use Mercatus\Core\Contracts\Identity\ActorIdentity;
 use Mercatus\Core\Contracts\Identity\MenuItem;
-use Mercatus\Core\Identity\Domain\AccessDecision;
+use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Identity\Domain\PolicyEngine;
 
 /**
- * Keeps the items the policy engine allows, sorted by position, and nests them under their parents. An item
- * under a hidden or missing parent is hidden too; a duplicate ID keeps the earlier module's item.
+ * Keeps the items the policy engine allows and that suit the actor's type, sorted by position, and nests them
+ * under their parents. An item under a hidden or missing parent is hidden too; a duplicate ID keeps the earlier
+ * module's item.
  */
 final class DashboardMenuCompiler {
 
@@ -52,7 +53,10 @@ final class DashboardMenuCompiler {
 	public static function tree( ActorIdentity $actor, array $items ): array {
 		$visible = array();
 		foreach ( $items as $item ) {
-			if ( ! isset( $visible[ $item->id ] ) && AccessDecision::Allowed === PolicyEngine::access( $actor, $item->access, $item->permission ) ) {
+			if ( isset( $visible[ $item->id ] ) || ( array() !== $item->actorTypes && ! in_array( $actor->type, $item->actorTypes, true ) ) ) {
+				continue;
+			}
+			if ( AccessDecision::Allowed === PolicyEngine::access( $actor, $item->access, $item->permission ) ) {
 				$visible[ $item->id ] = $item;
 			}
 		}

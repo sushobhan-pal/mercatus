@@ -1,0 +1,6 @@
+# End-to-end site (TEST-1 Layer 7): bin/e2e.sh adds this to compose.yaml so the wordpress service serves the
+# site on http://localhost:8889.
+services:
+  wordpress:
+    ports:
+      - "8889:80"

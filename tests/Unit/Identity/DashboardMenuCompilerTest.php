@@ -63,6 +63,14 @@ final class DashboardMenuCompilerTest extends TestCase {
 		$this->assertSame( array( 'settings.modules' ), array_column( $menu[1]['children'], 'id' ) );
 	}
 
+	public function testAnItemForSomeActorTypesIsHiddenFromTheOthers(): void {
+		$items = array( new MenuItem( 'selling', 'Selling', 'vendor-account', Access::Authenticated, actorTypes: array( ActorType::Customer, ActorType::VendorOwner ) ) );
+
+		$this->assertSame( array( 'selling' ), array_column( DashboardMenuCompiler::tree( new ActorIdentity( ActorType::Customer, 2 ), $items ), 'id' ) );
+		$this->assertSame( array( 'selling' ), array_column( DashboardMenuCompiler::tree( new ActorIdentity( ActorType::VendorOwner, 3, 12 ), $items ), 'id' ) );
+		$this->assertSame( array(), DashboardMenuCompiler::tree( new ActorIdentity( ActorType::Administrator, 6 ), $items ) );
+	}
+
 	public function testNobodySignedInSeesNothing(): void {
 		$this->assertSame( array(), DashboardMenuCompiler::tree( ActorIdentity::anonymous(), self::items() ) );
 	}

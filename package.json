@@ -9,15 +9,31 @@
 	"scripts": {
 		"build": "wp-scripts build --webpack-src-dir=ui/src --output-path=build",
 		"start": "wp-scripts start --webpack-src-dir=ui/src --output-path=build",
-		"lint:js": "wp-scripts lint-js ui",
+		"lint:js": "wp-scripts lint-js ui tests/Js tests/EndToEnd playwright.config.js vitest.config.mjs",
 		"lint:css": "wp-scripts lint-style \"ui/**/*.{css,scss}\" --allow-empty-input",
 		"lint:openapi": "redocly lint openapi/mercatus-v1.yaml",
 		"test:unit": "wp-scripts test-unit-js --passWithNoTests",
-		"test:e2e": "wp-scripts test-playwright"
+		"test:e2e": "bin/e2e.sh"
 	},
 	"devDependencies": {
+		"@playwright/test": "1.64.1",
 		"@redocly/cli": "2.60.0",
+		"@testing-library/dom": "10.4.1",
+		"@testing-library/jest-dom": "7.0.1",
+		"@testing-library/react": "16.3.3",
+		"@testing-library/user-event": "14.6.8",
+		"@vitejs/plugin-react-swc": "4.3.3",
+		"@wordpress/api-fetch": "8.0.0",
+		"@wordpress/components": "43.0.0",
+		"@wordpress/data": "11.0.0",
+		"@wordpress/e2e-test-utils-playwright": "3.1.0",
+		"@wordpress/element": "10.0.0",
+		"@wordpress/i18n": "7.0.0",
 		"@wordpress/scripts": "^37.0.0",
+		"@wordpress/url": "5.0.0",
+		"jsdom": "26.1.0",
+		"react": "18.3.1",
+		"react-dom": "18.3.1",
 		"vite": "^8.3.5",
 		"vitest": "^5.0.5"
 	}

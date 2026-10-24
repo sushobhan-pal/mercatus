@@ -12,8 +12,9 @@ namespace Mercatus\Core\Contracts\Identity;
 use Mercatus\Core\Contracts\Http\Access;
 
 /**
- * Shown only to actors whom the same policy as the item's routes allows (IDN-4, IDN-12). A hidden item is
- * never the security boundary.
+ * Shown only to actors whom the same policy as the item's routes allows (IDN-4, IDN-12), narrowed by actor
+ * type when the screen only makes sense for some, such as applying to sell. A hidden item is never the
+ * security boundary.
  */
 final readonly class MenuItem {
 
@@ -27,6 +28,7 @@ final readonly class MenuItem {
 	 * @param string|null $permission Named permission it needs, if any.
 	 * @param string|null $parentId   ID of the item it sits under.
 	 * @param int         $position   Order among its siblings, lowest first.
+	 * @param list<ActorType> $actorTypes Only these actor types see it; empty for any the access allows.
 	 */
 	public function __construct(
 		public string $id,
@@ -36,5 +38,6 @@ final readonly class MenuItem {
 		public ?string $permission = null,
 		public ?string $parentId = null,
 		public int $position = 100,
+		public array $actorTypes = array(),
 	) {}
 }
