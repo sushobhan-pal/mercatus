@@ -20,6 +20,8 @@ use Mercatus\Core\Database\Seeders\ScaleSeedCommand;
 use Mercatus\Core\Identity\Application\FeatureSource;
 use Mercatus\Core\Identity\Application\IdentityResolver;
 use Mercatus\Core\Identity\Application\ModuleExtensions;
+use Mercatus\Core\Identity\Application\RateLimiter;
+use Mercatus\Core\Identity\Infrastructure\IdempotencyStore;
 use Mercatus\Core\Identity\Infrastructure\IdentityExecutionContext;
 use Mercatus\Core\Infrastructure\Audit\AuditStore;
 use Mercatus\Core\Infrastructure\Audit\BufferedAuditLog;
@@ -171,6 +173,7 @@ final class Kernel {
 		$container->instance( CurrentActor::class, $context );
 		$container->factory( IdentityRevisions::class, static fn( Container $services ): IdentityRevisions => $services->get( IdentityResolver::class ) );
 		$container->factory( AccessGate::class, static fn( Container $services ): AccessGate => $services->get( PolicyAccessGate::class ) );
+		$container->factory( RateLimiter::class, static fn( Container $services ): RateLimiter => new RateLimiter( $services->get( CoordinationPort::class ), $services->get( SettingsReader::class ), static fn(): int => $services->get( Clock::class )->now()->getTimestamp() ) );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
 		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );
 		$container->factory( TransactionRunner::class, static fn( Container $services ): TransactionRunner => $services->get( WpdbTransactionRunner::class ) );
@@ -374,6 +377,9 @@ final class Kernel {
 		}
 		$now = $this->container->get( Clock::class )->now();
 		$this->container->get( OutboxStore::class )->purge( $now->sub( new DateInterval( 'P' . $settings->int( KernelSettings::OUTBOX_RETENTION_DAYS ) . 'D' ) ) );
+		if ( in_array( 'core.identity', $this->resolution()->activeIds(), true ) ) {
+			$this->container->get( IdempotencyStore::class )->purge( $now );
+		}
 		$years = $settings->int( KernelSettings::AUDIT_PURGE_AFTER_YEARS );
 		if ( $years > 0 ) {
 			$this->container->get( AuditStore::class )->purge( $now->sub( new DateInterval( 'P' . $years . 'Y' ) ) );

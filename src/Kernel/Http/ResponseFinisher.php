@@ -28,9 +28,10 @@ final class ResponseFinisher {
 	/**
 	 * Creates the finisher.
 	 *
-	 * @param ExecutionContext $context Request ID.
+	 * @param ExecutionContext $context  Request ID.
+	 * @param RoutePipeline    $pipeline Rate-limit decisions.
 	 */
-	public function __construct( private ExecutionContext $context ) {}
+	public function __construct( private ExecutionContext $context, private RoutePipeline $pipeline ) {}
 
 	/**
 	 * Finishes a response from a Mercatus route; leaves others untouched.
@@ -59,6 +60,15 @@ final class ResponseFinisher {
 			$response->header( 'Cache-Control', $this->cacheControl( $get, $response->get_status(), $meta?->access ) );
 		}
 		$response->header( 'X-Request-Id', $this->context->requestId() );
+		$limit = $this->pipeline->rateLimit( $request );
+		if ( null !== $limit && null !== $limit->limit ) {
+			$response->header( 'RateLimit-Limit', (string) $limit->limit );
+			$response->header( 'RateLimit-Remaining', (string) $limit->remaining );
+			$response->header( 'RateLimit-Reset', (string) $limit->reset );
+			if ( 429 === $response->get_status() ) {
+				$response->header( 'Retry-After', (string) $limit->reset );
+			}
+		}
 
 		return $response;
 	}

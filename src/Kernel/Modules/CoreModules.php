@@ -13,7 +13,9 @@ use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Identity\Api\IdentityRoutes;
 use Mercatus\Core\Identity\Application\IdentitySettings;
 use Mercatus\Core\Identity\Application\PermissionsHealthCheck;
+use Mercatus\Core\Identity\Application\RateLimitingHealthCheck;
 use Mercatus\Core\Identity\Infrastructure\IdentityHooks;
+use Mercatus\Core\Identity\Infrastructure\IdentityMigrations;
 use Mercatus\Core\Identity\Infrastructure\WordPressClaimSource;
 use Mercatus\Core\Kernel\Http\KernelRoutes;
 use Mercatus\Core\Kernel\KernelMigrations;
@@ -39,7 +41,8 @@ final class CoreModules {
 					id: 'core.identity',
 					version: $version,
 					routes: IdentityRoutes::class,
-					healthChecks: array( PermissionsHealthCheck::class ),
+					migrations: IdentityMigrations::class,
+					healthChecks: array( PermissionsHealthCheck::class, RateLimitingHealthCheck::class ),
 					settings: IdentitySettings::class,
 					hooks: IdentityHooks::class,
 					claimSources: array( WordPressClaimSource::class ),

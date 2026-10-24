@@ -42,6 +42,7 @@ final class HealthEndpointAuthTest extends WP_UnitTestCase {
 		$this->assertSame( 'mercatus_modules_loaded', $checks['kernel.modules'] ?? null );
 		$this->assertSame( 'mercatus_routes_registered', $checks['kernel.routes'] ?? null );
 		$this->assertSame( 'mercatus_permissions_unique', $checks['identity.permissions'] ?? null );
+		$this->assertSame( wp_using_ext_object_cache() ? 'mercatus_rate_limiting_on' : 'mercatus_rate_limiting_off', $checks['identity.rate_limiting'] ?? null );
 		$this->assertSame( wp_using_ext_object_cache() ? 'mercatus_persistent_cache' : 'mercatus_no_persistent_cache', $checks['kernel.cache'] ?? null );
 	}
 }
