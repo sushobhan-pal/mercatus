@@ -81,7 +81,7 @@ Routes follow API-1 through the route pipeline (IDN-21).
   - `GET /stores/{id}`: any store, every field.
   - `PATCH /stores/{id}` (`If-Match`): the vendor's fields plus visibility.
   - `GET /stores` takes a visibility and status filter for them, so hidden and suspended stores can be found.
-  - Master v2.10 adds these to API-2 first.
+  - Master v2.10 added these to API-2.
 - **Idempotency:** nothing here changes money or stock, so no route requires `Idempotency-Key`; any `POST` accepts one (IDN-9).
 
 ## 5. Events and hooks
@@ -186,16 +186,17 @@ Routes follow API-1 through the route pipeline (IDN-21).
   - Off until the administrator chooses one. Until then `latitude`, `longitude` and `geo_cell` stay empty, and nothing in this module depends on them.
   - A geocoding failure never blocks saving the address: the coordinates stay empty and a later save retries.
   - Requests go through the outbound allow-list (STO-8). Searching stores near a place arrives with location discovery in `core.catalog`.
-- **STO-15 Administrators' store endpoints (OQ-7).** `GET /stores/{id}` and `PATCH /stores/{id}`, for administrators and managers holding `stores.manage`, with the vendor's fields plus visibility, and a visibility and status filter on `GET /stores` for them. Master v2.10 adds them to API-2 first.
+- **STO-15 Administrators' store endpoints (OQ-7).** `GET /stores/{id}` and `PATCH /stores/{id}`, for administrators and managers holding `stores.manage`, with the vendor's fields plus visibility, and a visibility and status filter on `GET /stores` for them. Master v2.10 added them to API-2.
 - **STO-16 Store content in other languages (OQ-8, PLAT-11).**
   - The store page's own labels, the store list page and the base slug are translated: the page resolves to its translations, as the dashboard page does (VEN-15), and the base registers with the multilingual plugin's string translation.
   - The vendor's own text (name, tagline, description and policies) is shown as written, in one language per store. Vendors writing in several languages is a branded-storefront feature (Pro).
+  - Master v2.10 changed PLAT-11 to match: products follow the multilingual plugin's model, and store profiles keep one language per store.
 
 ## 11. Open questions
 None. All eight were answered on 2026-10-24 and are recorded as STO-9 to STO-16.
 
 ## 12. Done when
-- Master v2.10 is merged: the administrators' store endpoints in API-2 (STO-15).
+- Master v2.10 is merged: the administrators' store endpoints in API-2 (STO-15) and store profiles in PLAT-11 (STO-16).
 - TEST-3 row 5 passes in full with and without a persistent cache, including the IDOR and warm-cache zero-SQL tests: the ROAD-3 Phase 2 exit gate.
 - `VendorRichTextSanitizationTest` and `OutboundRequestAllowListTest` pass.
 - `openapi/mercatus-v1.yaml` includes this module's routes, and Redocly passes.
