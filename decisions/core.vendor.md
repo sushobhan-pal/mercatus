@@ -1,6 +1,6 @@
 # `core.vendor` — Decision File
 
-**Status:** Draft
+**Status:** Approved (2026-10-24)
 **Phase / position:** Phase 2, module 3 in ROAD-3
 **Branch:** `core.vendor`
 **Depends on:** `core.identity` (module 2)
