@@ -9,19 +9,21 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Tests\Integration\Http;
 
-use Mercatus\Core\Kernel\Http\FailClosedAccessGate;
+use Mercatus\Core\Kernel\Http\AccessGate;
 use Mercatus\Core\Kernel\Http\WordPressRouteRegistrar;
 use Mercatus\Core\Kernel\Kernel;
 use WP_UnitTestCase;
 
 /**
- * Endpoints without access metadata, with an invalid level, with their own permission callback or without a
- * callback are refused and reported; the kernel's own routes all pass.
+ * Endpoints without access metadata, with an invalid level, naming an unknown permission, with their own
+ * permission callback or without a callback are refused and reported; the kernel's own routes all pass.
  */
 final class RouteRegistrarTest extends WP_UnitTestCase {
 
 	public function testRefusesEndpointsWithoutValidMetadata(): void {
-		$registrar = new WordPressRouteRegistrar( new FailClosedAccessGate() );
+		$kernel = Kernel::instance();
+		$this->assertNotNull( $kernel );
+		$registrar = new WordPressRouteRegistrar( $kernel->container()->get( AccessGate::class ) );
 		$callback  = static fn(): array => array();
 
 		$registrar->add(
@@ -74,16 +76,34 @@ final class RouteRegistrarTest extends WP_UnitTestCase {
 			)
 		);
 
-		$this->assertSame( array( 'GET /probe-a', 'GET /probe-b', 'GET /probe-c', 'GET /probe-d', '? probe-e' ), $registrar->refused() );
+		$registrar->add(
+			'/probe-f',
+			array(
+				array(
+					'methods'  => 'GET',
+					'callback' => $callback,
+					'mercatus' => array(
+						'access'     => 'admin',
+						'permission' => 'nobody.declared_this',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( array( 'GET /probe-a', 'GET /probe-b', 'GET /probe-c', 'GET /probe-d', '? probe-e', 'GET /probe-f' ), $registrar->refused() );
 	}
 
+	/**
+	 * Every kernel route names a known permission or none, so none being refused also proves that known
+	 * permissions are accepted.
+	 */
 	public function testTheKernelsRoutesAreAllRegistered(): void {
 		$kernel = Kernel::instance();
 		$this->assertNotNull( $kernel );
 		$routes = array_keys( rest_get_server()->get_routes( 'mercatus/v1' ) );
 
 		$this->assertSame( array(), $kernel->container()->get( WordPressRouteRegistrar::class )->refused() );
-		foreach ( array( '/mercatus/v1/features', '/mercatus/v1/health', '/mercatus/v1/system/cache/flush-group', '/mercatus/v1/modules' ) as $route ) {
+		foreach ( array( '/mercatus/v1/features', '/mercatus/v1/health', '/mercatus/v1/system/cache/flush-group', '/mercatus/v1/modules', '/mercatus/v1/me' ) as $route ) {
 			$this->assertContains( $route, $routes );
 		}
 	}

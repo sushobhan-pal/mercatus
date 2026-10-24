@@ -49,6 +49,8 @@ final readonly class RouteOperation {
 	 * @param string|null                         $resourceType   Resource type the route acts on, for example withdrawal.
 	 * @param string|null                         $summary        One-line summary for the API reference.
 	 * @param array<string, mixed>|null           $responseSchema JSON Schema of the response item, when the route has one.
+	 * @param string|null                         $permission     Named permission the route needs (IDN-4).
+	 * @param string|null                         $route          The route's regex as registered.
 	 */
 	public function __construct(
 		public string $method,
@@ -60,6 +62,8 @@ final readonly class RouteOperation {
 		public ?string $resourceType = null,
 		public ?string $summary = null,
 		public ?array $responseSchema = null,
+		public ?string $permission = null,
+		public ?string $route = null,
 	) {}
 
 	/**

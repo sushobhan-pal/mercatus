@@ -44,13 +44,16 @@ final class WordPressRouteRegistrar implements RouteRegistrar {
 		}
 		$accepted = array();
 		foreach ( $endpoints as $endpoint ) {
-			$meta   = is_array( $endpoint['mercatus'] ?? null ) ? $endpoint['mercatus'] : array();
-			$access = is_string( $meta['access'] ?? null ) ? Access::tryFrom( $meta['access'] ) : null;
-			if ( null === $access || isset( $endpoint['permission_callback'] ) || ! isset( $endpoint['callback'] ) ) {
+			$meta       = is_array( $endpoint['mercatus'] ?? null ) ? $endpoint['mercatus'] : array();
+			$access     = is_string( $meta['access'] ?? null ) ? Access::tryFrom( $meta['access'] ) : null;
+			$permission = $meta['permission'] ?? null;
+			$known      = null === $permission || ( is_string( $permission ) && $this->gate->knows( $permission ) );
+			if ( null === $access || ! $known || isset( $endpoint['permission_callback'] ) || ! isset( $endpoint['callback'] ) ) {
 				$this->refused[] = ( is_string( $endpoint['methods'] ?? null ) ? $endpoint['methods'] : '?' ) . ' ' . $route;
 				continue;
 			}
-			$endpoint['permission_callback'] = fn( WP_REST_Request $request ): true|WP_Error => $this->gate->check( $access, $request );
+			$permission                      = is_string( $permission ) ? $permission : null;
+			$endpoint['permission_callback'] = fn( WP_REST_Request $request ): true|WP_Error => $this->gate->check( $access, $permission, $request );
 			$accepted[]                      = $endpoint;
 		}
 		if ( array() === $accepted ) {

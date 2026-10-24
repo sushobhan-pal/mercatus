@@ -36,6 +36,7 @@ final readonly class ModuleManifest {
 	 * @param list<class-string>    $healthChecks     Health checks reported by GET /health.
 	 * @param class-string|null     $settings         Declares the module's settings (a `SettingsProvider`).
 	 * @param class-string|null     $hooks            Attaches the module's WordPress hooks while it's active (`ModuleHooks`).
+	 * @param list<class-string>    $claimSources     Tell the identity resolver who users are to the module (`ClaimSource`).
 	 * @throws InvalidArgumentException When the ID, version or a requirement is malformed.
 	 */
 	public function __construct(
@@ -51,6 +52,7 @@ final readonly class ModuleManifest {
 		public array $healthChecks = array(),
 		public ?string $settings = null,
 		public ?string $hooks = null,
+		public array $claimSources = array(),
 	) {
 		if ( 1 !== preg_match( self::ID_PATTERN, $id ) ) {
 			throw new InvalidArgumentException( 'A module ID is core.<name> or pro.<name>, lower case.' );

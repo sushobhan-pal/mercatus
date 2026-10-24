@@ -177,7 +177,9 @@ final class RouteOperations {
 				$access,
 				is_string( $meta['resource'] ?? null ) ? $meta['resource'] : null,
 				is_string( $meta['summary'] ?? null ) ? $meta['summary'] : null,
-				$response
+				$response,
+				is_string( $meta['permission'] ?? null ) ? $meta['permission'] : null,
+				$route
 			);
 		}
 

@@ -106,7 +106,112 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.health.view
       x-mercatus-resource: health
+  /me:
+    get:
+      operationId: getMe
+      summary: 'The signed-in actor, its permissions, the features and the dashboard menu'
+      tags:
+        - me
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actor:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - anonymous
+                          - customer
+                          - vendor_owner
+                          - vendor_staff
+                          - delivery_agent
+                          - affiliate
+                          - marketplace_manager
+                          - administrator
+                          - integration_client
+                          - webhook_provider
+                      user_id:
+                        type: integer
+                      display_name:
+                        type: string
+                      vendor_id:
+                        type:
+                          - integer
+                          - 'null'
+                    required:
+                      - type
+                      - user_id
+                      - display_name
+                      - vendor_id
+                  permissions:
+                    type: array
+                    items:
+                      type: string
+                  features:
+                    type: object
+                    properties:
+                      modules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                            - id
+                      features:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - modules
+                      - features
+                  menu:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        screen:
+                          type: string
+                        children:
+                          type: array
+                          items:
+                            type: object
+                      required:
+                        - id
+                        - label
+                        - screen
+                        - children
+                required:
+                  - actor
+                  - permissions
+                  - features
+                  - menu
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: authenticated
+      x-mercatus-resource: actor
   /modules:
     get:
       operationId: getModules
@@ -148,6 +253,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.modules.manage
       x-mercatus-resource: module
   '/modules/{id}/activate':
     post:
@@ -188,6 +294,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.modules.manage
       x-mercatus-resource: module
   '/modules/{id}/deactivate':
     post:
@@ -228,6 +335,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.modules.manage
       x-mercatus-resource: module
   /system/cache/flush-group:
     post:
@@ -273,6 +381,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.cache.flush
       x-mercatus-resource: cache_group
 components:
   schemas:

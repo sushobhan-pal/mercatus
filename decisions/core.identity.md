@@ -201,6 +201,24 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
   - Defaults per minute: visitors 120 reads and 20 writes; signed-in users 600 and 120; API clients 1,200 and 300 (§3).
   - Routes that attract abuse, such as vendor applications and reviews, declare a tighter limit in their metadata.
 
+- **IDN-20 Actor identity, policy engine and `/me` (ticket 10).**
+  - **Code:** `src/Identity/` (Domain, Application, Infrastructure, Api). New contracts in `Contracts\Identity`: `ActorType`, `ActorIdentity`, `ActorClaim`, `VendorScope`, `ClaimSource`, `PermissionDefinition`, `PermissionProvider`, `MenuItem`, `DashboardMenuProvider`, `CurrentActor` and `IdentityRevisions`. New in `Contracts\Settings`: `SettingsReader`, which the kernel's settings registry implements. `ModuleManifest` gains `claimSources`, and the validator checks it, `permissions` and `dashboardMenu` (INVALID_CLASS).
+  - **Deferred contracts:** `/me` section providers and the resource-policy interface (IDN-14) arrive with their first users, `core.store` and `core.vendor`, so no contract is frozen before something needs it. Adding them then is additive.
+  - **Policy engine:** `PolicyEngine::access()` decides routes and menu items, and `PolicyEngine::vendorResource()` decides vendor resources (SEC-4, IDN-15). `PolicyAccessGate` replaces `FailClosedAccessGate`; the gate now takes the route's permission and can say whether a permission exists.
+  - **Module entitlement (SEC-2 step 4):** a switched-off module registers no routes, so Core has nothing to check yet. `pro.licensing` adds the check.
+  - **Kernel permissions:** `kernel.health.view`, `kernel.cache.flush` and `kernel.modules.manage`. `/features` shows module versions to administrators only. The kernel's migrate action and migration notice check the identity's administrator. Notices that can show before modules load keep WordPress's own checks.
+  - **Store conflicts:** a user with conflicting store claims gets no store, and the owner or staff type doesn't apply.
+  - **Manager permissions:** stored as comma-separated text, since the settings registry has no list type. The identity cache key carries a hash of the setting, so a change takes effect at once without the global revision IDN-2 described.
+  - **`identity.manager.permissions_changed`:** emitted by the settings write path once it exists. The kernel's `kernel.settings.updated` (core.kernel §5) isn't emitted yet either: nothing writes settings outside tests.
+  - **Appointing managers:** `ManagerAppointments`, plus `wp mercatus manager appoint|remove|list`. A REST endpoint and screen need API-2 entries, which come with the dashboard shell (`core.vendor`).
+  - **`/me`:** sends `Cache-Control: private, no-cache` now; its ETag comes with ticket 11's base controller.
+  - **Integration tests:**
+    - The bootstrap registers a test-only `pro.testactors` module, whose claim source makes vendor owners and staff from user meta until `core.vendor` exists.
+    - The site kernel's transaction runner uses savepoints in tests: a real `COMMIT` ended the test's transaction and leaked rows into later tests.
+    - `IdorActorMatrixTest` calls each route's own permission callback. Its 404 cases (another store's resource) need tenant routes and resources, and a tripwire fails once those routes exist.
+  - **Found and fixed:** `WpCachePort::bumpRevision()` now adds the pointer before incrementing it. An evicted pointer no longer restarts at 1 in Redis (PLAT-5).
+  - **Scale ceilings:** `identity.resolve` (a fresh resolver, as a new request builds it) and `me.read` are both 0 Mercatus queries, with and without a persistent cache. A cold identity's one query per claim source arrives with `core.vendor`'s source.
+
 ## 11. Open questions
 None. All five were answered on 2026-10-24 and are recorded as IDN-15 to IDN-19.
 

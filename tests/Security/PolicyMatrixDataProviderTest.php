@@ -39,6 +39,7 @@ final class PolicyMatrixDataProviderTest extends TestCase {
 				'POST /withdrawals/{id}/approve as anonymous' => array( 'POST /withdrawals/{id}/approve', 'anonymous', 401 ),
 				'POST /withdrawals/{id}/approve as customer' => array( 'POST /withdrawals/{id}/approve', 'customer', 403 ),
 				'POST /withdrawals/{id}/approve as vendor_owner' => array( 'POST /withdrawals/{id}/approve', 'vendor_owner', 403 ),
+				'POST /withdrawals/{id}/approve as marketplace_manager' => array( 'POST /withdrawals/{id}/approve', 'marketplace_manager', 403 ),
 			),
 			$cases
 		);
