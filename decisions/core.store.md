@@ -192,6 +192,31 @@ Routes follow API-1 through the route pipeline (IDN-21).
   - The vendor's own text (name, tagline, description and policies) is shown as written, in one language per store. Vendors writing in several languages is a branded-storefront feature (Pro).
   - Master v2.10 changed PLAT-11 to match: products follow the multilingual plugin's model, and store profiles keep one language per store.
 
+- **STO-17 Stores and locations (increment 1).**
+  - **Code:** `src/Store/` (Domain, Application, Infrastructure, Api), with migrations in `database/migrations/core.store/`.
+  - **Layers:** the endpoints reach the commands through the Application port `StoreDirectory` (IDN-21). `StoreFields` re-exports the domain's limits (fields, lengths, visibilities, statuses), so the routes describe exactly what the domain accepts without depending on it (ARCH-2).
+  - **One query per store:** every read joins the store's default location, so a store with its address is one indexed query.
+    - The cache holds each store under its own revision, plus the slug and vendor maps under theirs. Unknown slugs are remembered too, until a store takes one.
+    - A warm store page costs no query and a cold one costs one.
+  - **One version:** a change to the default location also bumps the store's `version`, so one ETag covers both.
+  - **Edge caching (TM-38):** responses that depend on who asks are explicitly `private, no-cache`: an owner previewing their hidden store, and an administrator's filtered list. Plain public reads keep PLAT-3's L3 headers.
+  - **`GET /stores`:** the visibility and status filters need `stores.manage` (otherwise 403). `search` is a name prefix, which the `(visibility, status, name, id)` index serves.
+  - **Slugs:** a name with nothing to keep, such as only symbols, becomes `store-1`, since `store` is reserved. The dashboard page's slug is reserved too.
+  - **Coordinates:** changing the address clears the coordinates, which belonged to the old address, until a geocoder sets new ones (increment 2). The `Geohash` encoder is in the domain already; the seeder uses it now, and geocoding will in increment 2.
+  - **Privacy (SEC-7):** the store's contact details and address join WordPress's export and erase tools as "Marketplace store". Erasing keeps an open store's, with a message, and clears a closed store's.
+  - **IDOR matrix (IDN-20):** the "another vendor's resource" case now applies only to tenant routes with a resource in the path. `/me/store` only ever reaches the caller's own store.
+  - **No backfill:** Mercatus is unreleased, so vendors approved before core.store existed are only on development sites.
+  - **Approval costs more:** creating the store runs in the approving request, so the vendor approval scenario's ceiling rises from 13 to 24 queries, still fixed whatever the number of vendors or stores (core.vendor's VEN-20 records the 13).
+  - **Ceilings measured with and without a persistent cache:**
+    - `GET /stores/{slug}`: 0 warm, 1 cold (PLAT-10 allows 2).
+    - One page of `GET /stores`: 1.
+    - A vendor's `/me`, with the store section: 0 warm.
+  - **Tests:**
+    - TEST-3 row 5, the store half: `StoreSlugNormalizerTest`, `StorePolicyTest`, `DefaultLocationAutoCreationTest`, `StoreRepositoryTest` (with `EXPLAIN` on the unique-key lookups), `StoreCrossTenantIsolationTest`, `StorePiiFieldRedactionTest` and `StorefrontEdgeCacheHeaderTest`.
+    - The threat model's `VendorRichTextSanitizationTest`.
+    - Also `StoreCreatedOnApprovalTest`, `StoreFollowsVendorStatusTest`, `StoreEndpointContractTest`, `MeStoreSectionTest`, `StorePersonalDataTest`, `GeohashTest` and `StoreSeedStepTest`.
+  - **Not yet:** the store page, the store list, the dashboard's Store screen and menu item, geocoding with `OutboundRequestAllowListTest`, and multilingual support arrive with increment 2.
+
 ## 11. Open questions
 None. All eight were answered on 2026-10-24 and are recorded as STO-9 to STO-16.
 

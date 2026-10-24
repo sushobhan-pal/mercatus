@@ -26,10 +26,12 @@ use WP_User;
 /**
  * With the seeded vendors: a vendor's identity costs one indexed query cold (the vendors.user_id lookup) and
  * none warm; a page of the review queue or of vendors is one query, with no per-row queries or COUNT; an
- * application with its history is two. Approving costs 13 whatever the number of vendors: the attempt and the
- * existing-vendor check (2), its transaction (6: start, the decision, the vendor row, the event, the audit
- * entry, commit), the committing request's outbox claim, read and finish (3), the approval email's read of
- * the attempt (1), and the response's (1).
+ * application with its history is two. Approving costs 24 whatever the number of vendors or stores: the attempt
+ * and the existing-vendor check (2), its transaction (6: start, the decision, the vendor row, the event, the
+ * audit entry, commit), the committing request's outbox claim, read and finish (3), the approval email's read
+ * of the attempt (1), and the response's (1); then core.store creating the store in the same request (11, STO-1):
+ * the existing-store and slug checks (2), its transaction (6: start, the store, its default location, the
+ * events, the audit entries, commit) and its own outbox claim, read and finish (3).
  */
 final class VendorScenarios {
 
@@ -71,7 +73,7 @@ final class VendorScenarios {
 			new ScaleScenario( 'vendor.application.read', 2, static fn(): mixed => self::asAdministrator( 'GET', '/vendor-applications/' . $application ) ),
 			new ScaleScenario(
 				'vendor.application.approve',
-				13,
+				24,
 				static function () use ( &$pending ): mixed {
 					return self::asAdministrator( 'POST', '/vendor-applications/' . array_shift( $pending ) . '/approve' );
 				}

@@ -26,6 +26,14 @@ use Mercatus\Core\Kernel\KernelMigrations;
 use Mercatus\Core\Kernel\KernelPermissions;
 use Mercatus\Core\Kernel\KernelSettings;
 use Mercatus\Core\Kernel\KernelSettingsForm;
+use Mercatus\Core\Store\Api\StoreMeSection;
+use Mercatus\Core\Store\Api\StorePermissions;
+use Mercatus\Core\Store\Api\StoreRoutes;
+use Mercatus\Core\Store\Api\StoreSettingsForm;
+use Mercatus\Core\Store\Application\StoreSettings;
+use Mercatus\Core\Store\Infrastructure\StoreEventSubscriber;
+use Mercatus\Core\Store\Infrastructure\StoreHooks;
+use Mercatus\Core\Store\Infrastructure\StoreMigrations;
 use Mercatus\Core\Vendor\Api\VendorMenu;
 use Mercatus\Core\Vendor\Api\VendorMeSection;
 use Mercatus\Core\Vendor\Api\VendorPermissions;
@@ -82,6 +90,22 @@ final class CoreModules {
 					meSections: array( VendorMeSection::class ),
 					eventSubscribers: array( VendorEmailSubscriber::class ),
 					settingsForm: VendorSettingsForm::class,
+				),
+				false,
+				true
+			),
+			new RegisteredModule(
+				new ModuleManifest(
+					id: 'core.store',
+					version: $version,
+					routes: StoreRoutes::class,
+					migrations: StoreMigrations::class,
+					permissions: StorePermissions::class,
+					settings: StoreSettings::class,
+					hooks: StoreHooks::class,
+					meSections: array( StoreMeSection::class ),
+					eventSubscribers: array( StoreEventSubscriber::class ),
+					settingsForm: StoreSettingsForm::class,
 				),
 				false,
 				true

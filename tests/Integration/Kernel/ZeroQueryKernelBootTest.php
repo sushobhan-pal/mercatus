@@ -33,7 +33,7 @@ final class ZeroQueryKernelBootTest extends WP_UnitTestCase {
 
 		$this->assertSame( 0, $wpdb->num_queries - $before );
 		$this->assertSame( 7, $retention );
-		$this->assertSame( array( 'core.kernel', 'core.identity', 'core.vendor' ), array_values( array_filter( $kernel->resolution()->activeIds(), static fn( string $id ): bool => str_starts_with( $id, 'core.' ) ) ) );
+		$this->assertSame( array( 'core.kernel', 'core.identity', 'core.vendor', 'core.store' ), array_values( array_filter( $kernel->resolution()->activeIds(), static fn( string $id ): bool => str_starts_with( $id, 'core.' ) ) ) );
 	}
 
 	/**

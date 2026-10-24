@@ -908,6 +908,283 @@ paths:
           applicationPassword: []
       x-mercatus-access: authenticated
       x-mercatus-resource: app_password
+  /me/store:
+    get:
+      operationId: getMeStore
+      summary: 'Your store, every field'
+      tags:
+        - me
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  vendor_id:
+                    type: integer
+                  slug:
+                    type: string
+                  name:
+                    type: string
+                  tagline:
+                    type: string
+                  description:
+                    type: string
+                  logo_id:
+                    type:
+                      - integer
+                      - 'null'
+                  banner_id:
+                    type:
+                      - integer
+                      - 'null'
+                  contact_email:
+                    type: string
+                  contact_phone:
+                    type: string
+                  show_email:
+                    type: boolean
+                  show_phone:
+                    type: boolean
+                  policies:
+                    type: object
+                    properties:
+                      shipping:
+                        type: string
+                      returns:
+                        type: string
+                      privacy:
+                        type: string
+                    required:
+                      - shipping
+                      - returns
+                      - privacy
+                  visibility:
+                    type: string
+                    enum:
+                      - public
+                      - hidden
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - closed
+                  listed:
+                    type: boolean
+                  address:
+                    type: object
+                    description: "The default location's address."
+                  coordinates:
+                    type:
+                      - object
+                      - 'null'
+                    description: 'latitude, longitude and geo_cell, once geocoded.'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - vendor_id
+                  - slug
+                  - name
+                  - tagline
+                  - description
+                  - logo_id
+                  - banner_id
+                  - contact_email
+                  - contact_phone
+                  - show_email
+                  - show_phone
+                  - policies
+                  - visibility
+                  - status
+                  - listed
+                  - address
+                  - coordinates
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: store
+    patch:
+      operationId: patchMeStore
+      summary: 'Change your store'
+      tags:
+        - me
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 191
+                slug:
+                  type: string
+                  minLength: 3
+                  maxLength: 60
+                show_email:
+                  type: boolean
+                show_phone:
+                  type: boolean
+                visibility:
+                  type: string
+                  enum:
+                    - public
+                    - hidden
+                address:
+                  type: object
+                  description: "The default location's address: address_1, address_2, city, state, postcode and country (ISO 3166-1 alpha-2)."
+                tagline:
+                  type: string
+                  maxLength: 191
+                description:
+                  type: string
+                  maxLength: 10000
+                contact_email:
+                  type: string
+                  maxLength: 191
+                contact_phone:
+                  type: string
+                  maxLength: 40
+                policy_shipping:
+                  type: string
+                  maxLength: 5000
+                policy_returns:
+                  type: string
+                  maxLength: 5000
+                policy_privacy:
+                  type: string
+                  maxLength: 5000
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  vendor_id:
+                    type: integer
+                  slug:
+                    type: string
+                  name:
+                    type: string
+                  tagline:
+                    type: string
+                  description:
+                    type: string
+                  logo_id:
+                    type:
+                      - integer
+                      - 'null'
+                  banner_id:
+                    type:
+                      - integer
+                      - 'null'
+                  contact_email:
+                    type: string
+                  contact_phone:
+                    type: string
+                  show_email:
+                    type: boolean
+                  show_phone:
+                    type: boolean
+                  policies:
+                    type: object
+                    properties:
+                      shipping:
+                        type: string
+                      returns:
+                        type: string
+                      privacy:
+                        type: string
+                    required:
+                      - shipping
+                      - returns
+                      - privacy
+                  visibility:
+                    type: string
+                    enum:
+                      - public
+                      - hidden
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - closed
+                  listed:
+                    type: boolean
+                  address:
+                    type: object
+                    description: "The default location's address."
+                  coordinates:
+                    type:
+                      - object
+                      - 'null'
+                    description: 'latitude, longitude and geo_cell, once geocoded.'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - vendor_id
+                  - slug
+                  - name
+                  - tagline
+                  - description
+                  - logo_id
+                  - banner_id
+                  - contact_email
+                  - contact_phone
+                  - show_email
+                  - show_phone
+                  - policies
+                  - visibility
+                  - status
+                  - listed
+                  - address
+                  - coordinates
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: store
   /modules:
     get:
       operationId: getModules
@@ -1254,6 +1531,558 @@ paths:
           applicationPassword: []
       x-mercatus-access: admin
       x-mercatus-resource: settings
+  /stores:
+    get:
+      operationId: getStores
+      summary: 'List stores'
+      tags:
+        - stores
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - name
+              - id
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+        -
+          name: visibility
+          in: query
+          required: false
+          description: 'Filter by visibility.'
+          schema:
+            type: string
+            enum:
+              - public
+              - hidden
+        -
+          name: status
+          in: query
+          required: false
+          description: 'Filter by status.'
+          schema:
+            type: string
+            enum:
+              - active
+              - suspended
+              - closed
+        -
+          name: search
+          in: query
+          required: false
+          description: 'Stores whose name starts with this.'
+          schema:
+            type: string
+            maxLength: 50
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        slug:
+                          type: string
+                        name:
+                          type: string
+                        tagline:
+                          type: string
+                        description:
+                          type: string
+                        logo_id:
+                          type:
+                            - integer
+                            - 'null'
+                        banner_id:
+                          type:
+                            - integer
+                            - 'null'
+                        contact:
+                          type: object
+                          description: 'The contact details the vendor shows: email, phone.'
+                        policies:
+                          type: object
+                          properties:
+                            shipping:
+                              type: string
+                            returns:
+                              type: string
+                            privacy:
+                              type: string
+                          required:
+                            - shipping
+                            - returns
+                            - privacy
+                        location:
+                          type: object
+                          properties:
+                            city:
+                              type: string
+                            state:
+                              type: string
+                            country:
+                              type: string
+                          required:
+                            - city
+                            - state
+                            - country
+                        created_at:
+                          type: string
+                      required:
+                        - id
+                        - slug
+                        - name
+                        - tagline
+                        - description
+                        - logo_id
+                        - banner_id
+                        - contact
+                        - policies
+                        - location
+                        - created_at
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security: []
+      x-mercatus-access: public
+      x-mercatus-resource: store
+  '/stores/{id}':
+    get:
+      operationId: getStoresId
+      summary: 'A store, every field'
+      tags:
+        - stores
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  vendor_id:
+                    type: integer
+                  slug:
+                    type: string
+                  name:
+                    type: string
+                  tagline:
+                    type: string
+                  description:
+                    type: string
+                  logo_id:
+                    type:
+                      - integer
+                      - 'null'
+                  banner_id:
+                    type:
+                      - integer
+                      - 'null'
+                  contact_email:
+                    type: string
+                  contact_phone:
+                    type: string
+                  show_email:
+                    type: boolean
+                  show_phone:
+                    type: boolean
+                  policies:
+                    type: object
+                    properties:
+                      shipping:
+                        type: string
+                      returns:
+                        type: string
+                      privacy:
+                        type: string
+                    required:
+                      - shipping
+                      - returns
+                      - privacy
+                  visibility:
+                    type: string
+                    enum:
+                      - public
+                      - hidden
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - closed
+                  listed:
+                    type: boolean
+                  address:
+                    type: object
+                    description: "The default location's address."
+                  coordinates:
+                    type:
+                      - object
+                      - 'null'
+                    description: 'latitude, longitude and geo_cell, once geocoded.'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - vendor_id
+                  - slug
+                  - name
+                  - tagline
+                  - description
+                  - logo_id
+                  - banner_id
+                  - contact_email
+                  - contact_phone
+                  - show_email
+                  - show_phone
+                  - policies
+                  - visibility
+                  - status
+                  - listed
+                  - address
+                  - coordinates
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: stores.manage
+      x-mercatus-resource: store
+    patch:
+      operationId: patchStoresId
+      summary: 'Change a store'
+      tags:
+        - stores
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 191
+                slug:
+                  type: string
+                  minLength: 3
+                  maxLength: 60
+                show_email:
+                  type: boolean
+                show_phone:
+                  type: boolean
+                visibility:
+                  type: string
+                  enum:
+                    - public
+                    - hidden
+                address:
+                  type: object
+                  description: "The default location's address: address_1, address_2, city, state, postcode and country (ISO 3166-1 alpha-2)."
+                tagline:
+                  type: string
+                  maxLength: 191
+                description:
+                  type: string
+                  maxLength: 10000
+                contact_email:
+                  type: string
+                  maxLength: 191
+                contact_phone:
+                  type: string
+                  maxLength: 40
+                policy_shipping:
+                  type: string
+                  maxLength: 5000
+                policy_returns:
+                  type: string
+                  maxLength: 5000
+                policy_privacy:
+                  type: string
+                  maxLength: 5000
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  vendor_id:
+                    type: integer
+                  slug:
+                    type: string
+                  name:
+                    type: string
+                  tagline:
+                    type: string
+                  description:
+                    type: string
+                  logo_id:
+                    type:
+                      - integer
+                      - 'null'
+                  banner_id:
+                    type:
+                      - integer
+                      - 'null'
+                  contact_email:
+                    type: string
+                  contact_phone:
+                    type: string
+                  show_email:
+                    type: boolean
+                  show_phone:
+                    type: boolean
+                  policies:
+                    type: object
+                    properties:
+                      shipping:
+                        type: string
+                      returns:
+                        type: string
+                      privacy:
+                        type: string
+                    required:
+                      - shipping
+                      - returns
+                      - privacy
+                  visibility:
+                    type: string
+                    enum:
+                      - public
+                      - hidden
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - closed
+                  listed:
+                    type: boolean
+                  address:
+                    type: object
+                    description: "The default location's address."
+                  coordinates:
+                    type:
+                      - object
+                      - 'null'
+                    description: 'latitude, longitude and geo_cell, once geocoded.'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - vendor_id
+                  - slug
+                  - name
+                  - tagline
+                  - description
+                  - logo_id
+                  - banner_id
+                  - contact_email
+                  - contact_phone
+                  - show_email
+                  - show_phone
+                  - policies
+                  - visibility
+                  - status
+                  - listed
+                  - address
+                  - coordinates
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: stores.manage
+      x-mercatus-resource: store
+  '/stores/{slug}':
+    get:
+      operationId: getStoresSlug
+      summary: 'A store, as the public sees it'
+      tags:
+        - stores
+      parameters:
+        -
+          name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z0-9-]+$'
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  slug:
+                    type: string
+                  name:
+                    type: string
+                  tagline:
+                    type: string
+                  description:
+                    type: string
+                  logo_id:
+                    type:
+                      - integer
+                      - 'null'
+                  banner_id:
+                    type:
+                      - integer
+                      - 'null'
+                  contact:
+                    type: object
+                    description: 'The contact details the vendor shows: email, phone.'
+                  policies:
+                    type: object
+                    properties:
+                      shipping:
+                        type: string
+                      returns:
+                        type: string
+                      privacy:
+                        type: string
+                    required:
+                      - shipping
+                      - returns
+                      - privacy
+                  location:
+                    type: object
+                    properties:
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                    required:
+                      - city
+                      - state
+                      - country
+                  created_at:
+                    type: string
+                required:
+                  - id
+                  - slug
+                  - name
+                  - tagline
+                  - description
+                  - logo_id
+                  - banner_id
+                  - contact
+                  - policies
+                  - location
+                  - created_at
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security: []
+      x-mercatus-access: public
+      x-mercatus-resource: store
   /system/cache/flush-group:
     post:
       operationId: postSystemCacheFlushGroup

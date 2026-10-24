@@ -70,7 +70,7 @@ final class InactiveModuleZeroFootprintTest extends WP_UnitTestCase {
 		$on = Kernel::create( MERCATUS_VERSION );
 		$on->start();
 
-		$this->assertSame( array( 'core.kernel', 'core.identity', 'core.vendor', 'pro.probe' ), $on->resolution()->activeIds() );
+		$this->assertSame( array( 'core.kernel', 'core.identity', 'core.vendor', 'core.store', 'pro.probe' ), $on->resolution()->activeIds() );
 		$this->assertSame( 1, ProbeHooks::$built );
 		$this->assertNotFalse( has_filter( ProbeHooks::FILTER ) );
 		$this->assertSame( 'hello', $on->settings()->string( 'pro.probe.greeting' ) );

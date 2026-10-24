@@ -79,6 +79,10 @@ final class PolicyMatrixDataProvider {
 			if ( RouteOperation::ACCESS_AUTHENTICATED === $operation->access && null !== $operation->permission ) {
 				$denials[ self::CUSTOMER ] = 403;
 			}
+			// Another store's resource needs a resource in the path; a /me route only ever reaches the actor's own.
+			if ( RouteOperation::ACCESS_TENANT === $operation->access && ! str_contains( $operation->path, '{' ) ) {
+				unset( $denials[ self::OTHER_VENDOR_OWNER ] );
+			}
 			foreach ( $denials as $actor => $status ) {
 				$cases[ $operation->label() . ' as ' . $actor ] = array( $operation, $actor, $status );
 			}

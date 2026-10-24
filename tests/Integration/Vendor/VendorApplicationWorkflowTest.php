@@ -41,12 +41,14 @@ final class VendorApplicationWorkflowTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Records an event's name.
+	 * Records a vendor event's name; other modules' reactions, such as core.store's, have their own tests.
 	 *
 	 * @param \Mercatus\Core\Shared\Events\DomainEvent $event Event.
 	 */
 	public function record( \Mercatus\Core\Shared\Events\DomainEvent $event ): void {
-		$this->events[] = $event->name;
+		if ( str_starts_with( $event->name, 'vendor.' ) ) {
+			$this->events[] = $event->name;
+		}
 	}
 
 	public function testApprovalMakesAVendorOwnerAtOnce(): void {
