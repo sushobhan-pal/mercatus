@@ -28,6 +28,7 @@ use Mercatus\Core\Vendor\Api\VendorMeSection;
 use Mercatus\Core\Vendor\Api\VendorPermissions;
 use Mercatus\Core\Vendor\Api\VendorRoutes;
 use Mercatus\Core\Vendor\Application\VendorSettings;
+use Mercatus\Core\Vendor\Infrastructure\Email\VendorEmailSubscriber;
 use Mercatus\Core\Vendor\Infrastructure\VendorClaimSource;
 use Mercatus\Core\Vendor\Infrastructure\VendorHooks;
 use Mercatus\Core\Vendor\Infrastructure\VendorMigrations;
@@ -74,6 +75,7 @@ final class CoreModules {
 					hooks: VendorHooks::class,
 					claimSources: array( VendorClaimSource::class ),
 					meSections: array( VendorMeSection::class ),
+					eventSubscribers: array( VendorEmailSubscriber::class ),
 				),
 				false,
 				true

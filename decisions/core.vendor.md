@@ -206,6 +206,17 @@ Routes follow API-1 through the base REST controller and the route pipeline (IDN
   - `GET /vendors`, `POST /vendors/{id}/suspend` and `POST /vendors/{id}/reinstate` come with this module; master v2.9 moves the suspend endpoint from Stores to Vendors.
   - Suspending bumps the vendor's identity in the same request (TM-8). Their store goes hidden once `core.store` exists.
 
+- **VEN-18 Registration, applications and vendors (increment 1).**
+  - **Code:** `src/Vendor/` (Domain, Application, Infrastructure, Api), with migrations in `database/migrations/core.vendor/`.
+  - **Shared kernel and contracts:** `StateMachine` joins the shared kernel (DRY-2). `AccessDecision` moves into `Contracts\Identity`, so Pro can implement the new `ResourcePolicy`. `MeSectionProvider` and the manifest's `meSections` are new. `ClaimSource::claims()` is marked impure, because claims read the database.
+  - **Layers:** the endpoints reach the commands through the Application port `VendorDirectory`, as with API clients (IDN-21). Permission names live in `VendorAccess` (Application), and the translated labels in the API layer (ARCH-7).
+  - **Withdrawing:** an applicant can't withdraw through the API yet, because API-2 has no endpoint for it. `withdrawn` is reached when the user is deleted.
+  - **Reviewers see the applicant:** queue items and the application include the applicant's name and email, loaded for a whole page with one `cache_users()`.
+  - **Emails:** five `WC_Email` classes with HTML and plain templates in `templates/emails/`, which themes can override like WooCommerce's. `VendorEmailSubscriber` sends them on the `critical` lane and reads reasons from the tables. PHPCS now checks `templates/`.
+  - **No dashboard link yet:** the approval email doesn't link to the dashboard; increment 2 adds the page.
+  - **`/me` stays at 0 queries (PLAT-10):** the scale gate showed the vendor section costing 2 queries on every `/me`, for everyone. Each user's standing is now cached under a per-user revision that every change bumps. Warm it costs no queries; cold, 2.
+  - **Integration tests:** the bootstrap registers the site kernel's savepoint runner while the kernel starts, because module hooks now build services that hold a transaction runner at boot. Doing it later let a real `COMMIT` leak rows between tests.
+
 ## 11. Open questions
 None. All seven were answered on 2026-10-24 and are recorded as VEN-11 to VEN-17.
 

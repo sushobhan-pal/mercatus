@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Vendor\Infrastructure;
 
+use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\ActorType;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
@@ -32,9 +33,15 @@ use Mercatus\Core\Vendor\Domain\VendorLifecycles;
 /**
  * Every change publishes its event and writes its audit entry in one transaction; reasons and answers stay in
  * their tables, because the audit log holds no free text (SEC-7). Changes to who someone is bump their
- * identity right after commit (G-CACHE-4).
+ * identity right after commit (G-CACHE-4), and every change bumps the user's standing, which /me reads from the
+ * cache (PLAT-10).
  */
 final class Vendors implements VendorDirectory {
+
+	/**
+	 * Cache group for each user's standing, next to their identity (PLAT-3).
+	 */
+	private const STANDING_GROUP = 'mercatus_actors';
 
 	/**
 	 * Creates the service.
@@ -49,6 +56,7 @@ final class Vendors implements VendorDirectory {
 	 * @param IdentityRevisions $revisions    Identity revisions.
 	 * @param SettingsReader    $settings     Settings.
 	 * @param Clock             $clock        Current time.
+	 * @param CachePort         $cache        Each user's standing, for /me.
 	 */
 	public function __construct(
 		private ApplicationStore $applications,
@@ -61,6 +69,7 @@ final class Vendors implements VendorDirectory {
 		private IdentityRevisions $revisions,
 		private SettingsReader $settings,
 		private Clock $clock,
+		private CachePort $cache,
 	) {}
 
 	public function register( array $input ): array {
@@ -106,6 +115,7 @@ final class Vendors implements VendorDirectory {
 				return $id;
 			}
 		);
+		$this->changed( $user_id );
 		if ( $this->settings->bool( VendorSettings::AUTO_APPROVE ) ) {
 			$this->approveAs( $this->find( $id ), 0 );
 		}
@@ -179,6 +189,7 @@ final class Vendors implements VendorDirectory {
 				$this->audit->record( 'vendor_application.rejected', 'vendor_application', $application->id );
 			}
 		);
+		$this->changed( $application->userId );
 
 		return $this->find( $id )->toArray();
 	}
@@ -206,8 +217,26 @@ final class Vendors implements VendorDirectory {
 	}
 
 	public function standing( int $user_id ): array {
-		$vendor  = $user_id > 0 ? $this->vendors->byUserId( $user_id ) : null;
-		$history = $user_id > 0 ? $this->applications->history( $user_id ) : array();
+		if ( $user_id <= 0 ) {
+			return array(
+				'vendor'      => null,
+				'application' => null,
+			);
+		}
+		$key = 'vendor_standing:u' . $user_id . ':r' . $this->cache->revision( self::standingScope( $user_id ) );
+
+		return $this->cache->remember( self::STANDING_GROUP, $key, 300, fn(): array => $this->freshStanding( $user_id ) );
+	}
+
+	/**
+	 * A user's standing from the tables: two indexed queries.
+	 *
+	 * @param int $user_id User.
+	 * @return array{vendor: array{id: int, status: string}|null, application: array{id: int, attempt: int, status: string, reason: string|null}|null}
+	 */
+	private function freshStanding( int $user_id ): array {
+		$vendor  = $this->vendors->byUserId( $user_id );
+		$history = $this->applications->history( $user_id );
 		$latest  = end( $history );
 
 		return array(
@@ -246,6 +275,7 @@ final class Vendors implements VendorDirectory {
 			}
 		);
 		$this->revisions->bump( $user_id );
+		$this->changed( $user_id );
 	}
 
 	/**
@@ -283,6 +313,7 @@ final class Vendors implements VendorDirectory {
 			}
 		);
 		$this->revisions->bump( $application->userId );
+		$this->changed( $application->userId );
 	}
 
 	/**
@@ -310,8 +341,27 @@ final class Vendors implements VendorDirectory {
 			}
 		);
 		$this->revisions->bump( $vendor->userId );
+		$this->changed( $vendor->userId );
 
 		return $this->vendors->byId( $id ) ?? $vendor;
+	}
+
+	/**
+	 * Makes the next /me read a user's standing afresh.
+	 *
+	 * @param int $user_id User.
+	 */
+	private function changed( int $user_id ): void {
+		$this->cache->bumpRevision( self::standingScope( $user_id ) );
+	}
+
+	/**
+	 * A user's standing revision scope.
+	 *
+	 * @param int $user_id User.
+	 */
+	private static function standingScope( int $user_id ): string {
+		return 'vendor_standing:' . $user_id;
 	}
 
 	/**

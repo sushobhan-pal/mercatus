@@ -12,7 +12,8 @@ namespace Mercatus\Core\Vendor\Infrastructure;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 
 /**
- * Deleting a WordPress user closes their vendor and withdraws a pending application.
+ * Deleting a WordPress user closes their vendor and withdraws a pending application; the module's emails join
+ * WooCommerce's.
  */
 final class VendorHooks implements ModuleHooks {
 
@@ -25,6 +26,21 @@ final class VendorHooks implements ModuleHooks {
 
 	public function register(): void {
 		add_action( 'deleted_user', array( $this, 'userDeleted' ) );
+		add_filter( 'woocommerce_email_classes', array( $this, 'emails' ) );
+	}
+
+	/**
+	 * Adds core.vendor's emails to WooCommerce's (VEN-7).
+	 *
+	 * @param array<string, \WC_Email> $emails Emails by class name.
+	 * @return array<string, \WC_Email>
+	 */
+	public function emails( array $emails ): array {
+		foreach ( array( Email\ApplicationReceivedEmail::class, Email\ApplicationApprovedEmail::class, Email\ApplicationRejectedEmail::class, Email\VendorSuspendedEmail::class, Email\VendorReinstatedEmail::class ) as $class_name ) {
+			$emails[ $class_name ] = new $class_name();
+		}
+
+		return $emails;
 	}
 
 	/**

@@ -5,6 +5,7 @@
 	<file>mercatus.php</file>
 	<file>src</file>
 	<file>database</file>
+	<file>templates</file>
 	<file>tests</file>
 
 	<!-- Fixtures break the rules on purpose so DependencyRulesTest can prove it catches them. -->
@@ -35,6 +36,8 @@
 		<exclude-pattern>tests/wp-tests-config.php</exclude-pattern>
 		<exclude-pattern>tests/bootstrap-integration.php</exclude-pattern>
 		<exclude-pattern>tests/bootstrap-scale.php</exclude-pattern>
+		<!-- Email templates fire WooCommerce's own email hooks, as WooCommerce's templates do (ARCH-12). -->
+		<exclude-pattern>templates/emails/*</exclude-pattern>
 	</rule>
 
 	<!-- Mercatus never prints exception messages: they are fixed strings or error codes, context travels in
