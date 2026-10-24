@@ -22,8 +22,9 @@ use Mercatus\Core\Shared\Http\Schema;
 use WP_REST_Response;
 
 /**
- * Everything the dashboard needs to start, in one call: the actor, its permissions, the features and the
- * compiled menu. Other modules' sections, such as the store summary, join it as they arrive.
+ * GET /me: everything the dashboard needs to start, in one call: the actor, its permissions, the features and
+ * the compiled menu. Other modules' sections, such as the store summary, join it as they arrive. The module's
+ * other endpoints are the API clients'.
  */
 final class IdentityRoutes implements RouteProvider {
 
@@ -34,10 +35,12 @@ final class IdentityRoutes implements RouteProvider {
 	 * @param FeatureSource         $features    Feature manifest.
 	 * @param DashboardMenuCompiler $menu        Menu compiler.
 	 * @param PermissionCatalog     $permissions Permissions.
+	 * @param ApiClientRoutes       $clients     The API-client endpoints.
 	 */
-	public function __construct( private CurrentActor $actors, private FeatureSource $features, private DashboardMenuCompiler $menu, private PermissionCatalog $permissions ) {}
+	public function __construct( private CurrentActor $actors, private FeatureSource $features, private DashboardMenuCompiler $menu, private PermissionCatalog $permissions, private ApiClientRoutes $clients ) {}
 
 	public function routes( RouteRegistrar $routes ): void {
+		$this->clients->routes( $routes );
 		$routes->add(
 			'/me',
 			array(

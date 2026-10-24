@@ -10,6 +10,8 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Kernel\Modules;
 
 use Mercatus\Core\Contracts\Module\ModuleManifest;
+use Mercatus\Core\Identity\Api\IdentityMenu;
+use Mercatus\Core\Identity\Api\IdentityPermissions;
 use Mercatus\Core\Identity\Api\IdentityRoutes;
 use Mercatus\Core\Identity\Application\IdentitySettings;
 use Mercatus\Core\Identity\Application\PermissionsHealthCheck;
@@ -42,6 +44,8 @@ final class CoreModules {
 					version: $version,
 					routes: IdentityRoutes::class,
 					migrations: IdentityMigrations::class,
+					permissions: IdentityPermissions::class,
+					dashboardMenu: IdentityMenu::class,
 					healthChecks: array( PermissionsHealthCheck::class, RateLimitingHealthCheck::class ),
 					settings: IdentitySettings::class,
 					hooks: IdentityHooks::class,

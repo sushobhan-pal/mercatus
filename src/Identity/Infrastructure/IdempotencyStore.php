@@ -30,7 +30,7 @@ final class IdempotencyStore {
 	public function __construct( private wpdb $db ) {}
 
 	/**
-	 * Claims a key; false when a row for it exists already.
+	 * Claims a key and returns its row ID; null when a row for it exists already.
 	 *
 	 * @param string            $fingerprint Actor fingerprint.
 	 * @param string            $route       Method and path.
@@ -39,13 +39,13 @@ final class IdempotencyStore {
 	 * @param DateTimeImmutable $now         Current time.
 	 * @param DateTimeImmutable $expires     When the row may be deleted.
 	 */
-	public function claim( string $fingerprint, string $route, string $key, string $hash, DateTimeImmutable $now, DateTimeImmutable $expires ): bool {
+	public function claim( string $fingerprint, string $route, string $key, string $hash, DateTimeImmutable $now, DateTimeImmutable $expires ): ?int {
 		$this->db->suppress_errors( true );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the unique key is the lock (PLAT-7).
 		$inserted = $this->db->query( self::prepared( $this->db, "INSERT IGNORE INTO %i (actor_fingerprint, route, idempotency_key, request_hash, status, created_at, expires_at) VALUES (%s, %s, %s, %s, 'processing', %s, %s)", $this->table(), $fingerprint, $route, $key, $hash, EventPayloadSerializer::format( $now ), EventPayloadSerializer::format( $expires ) ) );
 		$this->db->suppress_errors( false );
 
-		return 1 === $inserted;
+		return 1 === $inserted ? (int) $this->db->insert_id : null;
 	}
 
 	/**

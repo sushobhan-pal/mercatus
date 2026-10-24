@@ -17,10 +17,13 @@ use Mercatus\Core\Contracts\Identity\IdentityRevisions;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Database\Seeders\ScaleSeedCommand;
+use Mercatus\Core\Identity\Application\ApiClientDirectory;
 use Mercatus\Core\Identity\Application\FeatureSource;
 use Mercatus\Core\Identity\Application\IdentityResolver;
 use Mercatus\Core\Identity\Application\ModuleExtensions;
 use Mercatus\Core\Identity\Application\RateLimiter;
+use Mercatus\Core\Identity\Infrastructure\ApiClientAuthentication;
+use Mercatus\Core\Identity\Infrastructure\ApiClients;
 use Mercatus\Core\Identity\Infrastructure\IdempotencyStore;
 use Mercatus\Core\Identity\Infrastructure\IdentityExecutionContext;
 use Mercatus\Core\Infrastructure\Audit\AuditStore;
@@ -47,6 +50,7 @@ use Mercatus\Core\Contracts\Database\MigrationSource;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Infrastructure\Database\SchemaVersionStore;
 use Mercatus\Core\Infrastructure\Database\WpdbMigrationContext;
+use Mercatus\Core\Kernel\Cli\ApiClientCommand;
 use Mercatus\Core\Kernel\Cli\KernelCommand;
 use Mercatus\Core\Kernel\Cli\ManagerCommand;
 use Mercatus\Core\Kernel\Migrations\MigrationFiles;
@@ -168,11 +172,12 @@ final class Kernel {
 		$container->factory( \wpdb::class, static fn(): \wpdb => $GLOBALS['wpdb'] );
 		$container->factory( SettingsReader::class, static fn( Container $services ): SettingsReader => $services->get( SettingsRegistry::class ) );
 		// The actor comes from core.identity (IDN-13); its resolver needs the resolved modules, so it's built on first use.
-		$context = new IdentityExecutionContext( $container->get( Clock::class ), static fn(): IdentityResolver => $container->get( IdentityResolver::class ) );
+		$context = new IdentityExecutionContext( $container->get( Clock::class ), static fn(): IdentityResolver => $container->get( IdentityResolver::class ), static fn(): ApiClientAuthentication => $container->get( ApiClientAuthentication::class ) );
 		$container->instance( ExecutionContext::class, $context );
 		$container->instance( CurrentActor::class, $context );
 		$container->factory( IdentityRevisions::class, static fn( Container $services ): IdentityRevisions => $services->get( IdentityResolver::class ) );
 		$container->factory( AccessGate::class, static fn( Container $services ): AccessGate => $services->get( PolicyAccessGate::class ) );
+		$container->factory( ApiClientDirectory::class, static fn( Container $services ): ApiClientDirectory => $services->get( ApiClients::class ) );
 		$container->factory( RateLimiter::class, static fn( Container $services ): RateLimiter => new RateLimiter( $services->get( CoordinationPort::class ), $services->get( SettingsReader::class ), static fn(): int => $services->get( Clock::class )->now()->getTimestamp() ) );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
 		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );
@@ -272,6 +277,11 @@ final class Kernel {
 			\WP_CLI::add_command( 'mercatus manager appoint', array( $managers, 'appoint' ) );
 			\WP_CLI::add_command( 'mercatus manager remove', array( $managers, 'remove' ) );
 			\WP_CLI::add_command( 'mercatus manager list', array( $managers, 'listManagers' ) );
+			$clients = new ApiClientCommand( $this );
+			\WP_CLI::add_command( 'mercatus api-client create', array( $clients, 'create' ) );
+			\WP_CLI::add_command( 'mercatus api-client list', array( $clients, 'listClients' ) );
+			\WP_CLI::add_command( 'mercatus api-client revoke', array( $clients, 'revoke' ) );
+			\WP_CLI::add_command( 'mercatus api-client password', array( $clients, 'password' ) );
 			// Development tooling, absent from the plugin zip (KER-12).
 			if ( class_exists( ScaleSeedCommand::class ) ) {
 				\WP_CLI::add_command( 'mercatus seed:scale', new ScaleSeedCommand( $this ) );

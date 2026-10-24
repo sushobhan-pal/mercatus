@@ -11,23 +11,20 @@ namespace Mercatus\Core\Identity\Infrastructure;
 
 use Mercatus\Core\Contracts\Identity\ActorIdentity;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
-use Mercatus\Core\Contracts\Settings\SettingsReader;
-use Mercatus\Core\Identity\Application\IdentitySettings;
 
 /**
  * The API client, the signed-in user, or the visitor's IP address. Rate limits count against it, and
- * idempotency keys are scoped to it. The IP comes from the connection unless the administrator names the
- * header a trusted proxy or CDN sets, since a spoofable header must never be trusted by default.
+ * idempotency keys are scoped to it.
  */
 final class RequestSubject {
 
 	/**
 	 * Creates the subject.
 	 *
-	 * @param CurrentActor   $actors   The current actor.
-	 * @param SettingsReader $settings Settings.
+	 * @param CurrentActor  $actors  The current actor.
+	 * @param ClientAddress $address The visitor's address.
 	 */
-	public function __construct( private CurrentActor $actors, private SettingsReader $settings ) {}
+	public function __construct( private CurrentActor $actors, private ClientAddress $address ) {}
 
 	/**
 	 * The current identity.
@@ -57,25 +54,7 @@ final class RequestSubject {
 		return match ( $this->kind() ) {
 			'client' => 'client:' . $identity->apiClientId,
 			'user'   => 'user:' . $identity->userId,
-			default  => 'ip:' . $this->address(),
+			default  => 'ip:' . $this->address->current(),
 		};
-	}
-
-	/**
-	 * The visitor's IP address.
-	 */
-	public function address(): string {
-		$header    = $this->settings->string( IdentitySettings::TRUSTED_PROXY_HEADER );
-		$candidate = '';
-		if ( '' !== $header ) {
-			$name      = 'HTTP_' . strtoupper( str_replace( '-', '_', $header ) );
-			$values    = isset( $_SERVER[ $name ] ) ? explode( ',', sanitize_text_field( wp_unslash( $_SERVER[ $name ] ) ) ) : array();
-			$candidate = trim( $values[0] ?? '' );
-		}
-		if ( false === filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
-			$candidate = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		}
-
-		return false === filter_var( $candidate, FILTER_VALIDATE_IP ) ? '0.0.0.0' : $candidate;
 	}
 }

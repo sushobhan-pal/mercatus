@@ -32,17 +32,20 @@ final class IdentityExecutionContext implements ExecutionContext, CurrentActor {
 	/**
 	 * Creates the context.
 	 *
-	 * @param Clock                     $clock    Current time, for request IDs.
-	 * @param Closure(): IdentityResolver $resolver The resolver, built once the modules are resolved.
+	 * @param Clock                                   $clock    Current time, for request IDs.
+	 * @param Closure(): IdentityResolver             $resolver The resolver, built once the modules are resolved.
+	 * @param (Closure(): ApiClientAuthentication)|null $clients The request's application password, if any.
 	 */
-	public function __construct( private Clock $clock, private Closure $resolver ) {}
+	public function __construct( private Clock $clock, private Closure $resolver, private ?Closure $clients = null ) {}
 
 	public function actor(): ActorRef {
 		return $this->system > 0 ? ActorRef::system() : $this->identity()->ref();
 	}
 
 	public function identity(): ActorIdentity {
-		return ( $this->resolver )()->resolve( get_current_user_id() );
+		$identity = ( $this->resolver )()->resolve( get_current_user_id() );
+
+		return null === $this->clients ? $identity : ( $this->clients )()->apply( $identity );
 	}
 
 	public function requestId(): string {

@@ -23,6 +23,8 @@ final class CsrfNonceEnforcementTest extends WP_UnitTestCase {
 
 	public function set_up(): void {
 		parent::set_up();
+		// A request authenticated by an application password skips the nonce check; this one is a cookie request.
+		unset( $GLOBALS['wp_rest_application_password_uuid'], $GLOBALS['wp_rest_application_password_status'] );
 		$GLOBALS['wp_rest_auth_cookie'] = true; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals -- WordPress's own flag for a cookie-authenticated request.
 	}
 

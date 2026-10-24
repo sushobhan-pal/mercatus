@@ -130,6 +130,17 @@ final class PolicyEngineMatrixTest extends TestCase {
 		$this->assertSame( $expected, PolicyEngine::vendorResource( self::actors()[ $actor ], $vendor_id, $permission ) );
 	}
 
+	public function testAClientsScopesCapTheRequest(): void {
+		$client = new ActorIdentity( ActorType::Administrator, 6, apiClientId: 3, clientScopes: array( 'read', self::PERMISSION ) );
+		$writer = new ActorIdentity( ActorType::Customer, 2, apiClientId: 4, clientScopes: array( 'write' ) );
+
+		$this->assertSame( AccessDecision::Allowed, PolicyEngine::scope( self::actors()['administrator'], 'anything.at_all', true ), 'No client, no cap.' );
+		$this->assertSame( AccessDecision::Allowed, PolicyEngine::scope( $client, self::PERMISSION, false ) );
+		$this->assertSame( AccessDecision::Forbidden, PolicyEngine::scope( $client, null, true ), 'Read-only can\'t write.' );
+		$this->assertSame( AccessDecision::Forbidden, PolicyEngine::scope( $client, 'kernel.modules.manage', false ), 'A permission outside the scopes.' );
+		$this->assertSame( AccessDecision::Allowed, PolicyEngine::scope( $writer, null, false ), 'Write includes read.' );
+	}
+
 	public function testDecisionsMapToStatuses(): void {
 		$this->assertSame( array( 200, 401, 403, 404 ), array_map( static fn( AccessDecision $decision ): int => $decision->status(), AccessDecision::cases() ) );
 	}

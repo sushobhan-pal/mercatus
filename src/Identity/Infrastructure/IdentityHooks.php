@@ -13,7 +13,8 @@ use Mercatus\Core\Contracts\Identity\IdentityRevisions;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 
 /**
- * A role change, a super-admin change or a deleted user resolves afresh on the next request.
+ * A role change, a super-admin change or a deleted user resolves afresh on the next request; an application
+ * password WordPress authenticates is checked against its API client (IDN-11).
  */
 final class IdentityHooks implements ModuleHooks {
 
@@ -22,14 +23,16 @@ final class IdentityHooks implements ModuleHooks {
 	/**
 	 * Creates the hooks.
 	 *
-	 * @param IdentityRevisions $revisions Identity revisions.
+	 * @param IdentityRevisions       $revisions Identity revisions.
+	 * @param ApiClientAuthentication $clients   The request's application password.
 	 */
-	public function __construct( private IdentityRevisions $revisions ) {}
+	public function __construct( private IdentityRevisions $revisions, private ApiClientAuthentication $clients ) {}
 
 	public function register(): void {
 		foreach ( self::USER_CHANGES as $hook ) {
 			add_action( $hook, array( $this, 'forget' ) );
 		}
+		add_action( 'application_password_did_authenticate', array( $this->clients, 'authenticated' ), 10, 2 );
 	}
 
 	/**

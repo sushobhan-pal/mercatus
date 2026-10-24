@@ -219,6 +219,20 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
   - **Found and fixed:** `WpCachePort::bumpRevision()` now adds the pointer before incrementing it. An evicted pointer no longer restarts at 1 in Redis (PLAT-5).
   - **Scale ceilings:** `identity.resolve` (a fresh resolver, as a new request builds it) and `me.read` are both 0 Mercatus queries, with and without a persistent cache. A cold identity's one query per claim source arrives with `core.vendor`'s source.
 
+- **IDN-21 Base REST controller, idempotency, rate limiting and API clients (ticket 11).**
+  - **Shared kernel (DRY-2):** `Shared\Http` gains `ApiError`, `ETag`, `Cursor`, `ListDefinition`, `ListRequest`, `Page` and `Schema`.
+  - **No controller base class:** routes stay endpoint arrays. Every endpoint runs through the kernel's `RoutePipeline`: the rate limit, the gate, If-Match on `PATCH` and `PUT`, and idempotency on `POST`. An escaped domain error becomes a 400; anything unexpected a 500, logged to the WooCommerce log.
+  - **The envelope:** `ResponseFinisher` hooks `rest_request_after_callbacks`, because `rest_post_dispatch` doesn't run for internal dispatches. Messages follow WordPress's own locale switch, so the dashboard sends `_locale=user`.
+  - **Error maps (IDN-6):** what moved into the shared kernel is the mechanism, `ApiError`. Each module keeps its own map of codes to statuses and messages (ARCH-7); the kernel's `ErrorResponse` is its map.
+  - **Lists:** cursor queries are keyset over allow-listed columns. The first list sorts by ID only; a general keyset builder comes with the first list that sorts by another column.
+  - **Idempotency:** the claim returns its row ID, so an idempotent `POST` costs 2 queries. The outbox poller purges expired rows every minute, in bounded batches, instead of IDN-9's daily action, so there's no extra scheduled action. A replayed error carries `replayed: true` in its details. Keys belong to the request's subject: client, user or visitor IP.
+  - **Rate limiting:** a route's own limit counts in a second, per-route counter. Responses carry `RateLimit-Limit`, `-Remaining` and `-Reset`. The `identity.rate_limiting` health check warns when there's no persistent cache.
+  - **API clients, storage:** `api_clients` keeps the hash of each application ID (DATA-2). An integration's application ID also lives in its user's meta (`mercatus_api_client_app_{id}`), so its later passwords reuse it. The kind follows `actor_type`: `user` for an integration, `app` for an app.
+  - **API clients, requests:** WordPress's `application_password_did_authenticate` feeds `ApiClientAuthentication`. Refusals are `mercatus_api_client_unregistered`, `_revoked` and `_expired` (401), `_ip_denied` (403) and `mercatus_api_client_scope` (403). `ActorIdentity` gains `clientScopes`, and `PolicyEngine::scope()` decides them.
+  - **Layers:** the endpoints reach the client commands through an Application port, `ApiClientDirectory`. The permission and menu providers live in the API layer, because they translate labels (ARCH-7).
+  - **Integration tests:** WordPress records an application-password sign-in in `$wp_rest_application_password_uuid` and then skips the cookie nonce check, so tests that simulate a sign-in clear it.
+  - **Scale ceilings:** with and without a persistent cache, `me.not_modified` and `ratelimit.hit` are 0 Mercatus queries (with a cache, the limiter is one counter increment) and `idempotency.post` is 2.
+
 ## 11. Open questions
 None. All five were answered on 2026-10-24 and are recorded as IDN-15 to IDN-19.
 

@@ -44,6 +44,24 @@ final class PolicyEngine {
 	}
 
 	/**
+	 * Whether an API client's scopes allow the request (SEC-2 step 3): reads need read or write, writes need
+	 * write, and a route's named permission must be among the scopes too. Without a client there's no cap.
+	 *
+	 * @param ActorIdentity $actor      Actor.
+	 * @param string|null   $permission The route's named permission, if any.
+	 * @param bool          $write      Whether the request changes something.
+	 */
+	public static function scope( ActorIdentity $actor, ?string $permission, bool $write ): AccessDecision {
+		$scopes = $actor->clientScopes;
+		if ( null === $scopes ) {
+			return AccessDecision::Allowed;
+		}
+		$method = $write ? in_array( 'write', $scopes, true ) : array() !== array_intersect( array( 'read', 'write' ), $scopes );
+
+		return $method && ( null === $permission || in_array( $permission, $scopes, true ) ) ? AccessDecision::Allowed : AccessDecision::Forbidden;
+	}
+
+	/**
 	 * Access to a resource that belongs to one vendor. Another vendor's resource, or one outside a manager's
 	 * scope, is not found, so its existence doesn't leak; a missing permission within one's own store or scope
 	 * is forbidden.

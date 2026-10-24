@@ -59,19 +59,17 @@ final class IdempotentRequests {
 		$route       = substr( $request->get_method() . ' ' . $request->get_route(), 0, 191 );
 		$hash        = self::hash( $request );
 		$now         = $this->clock->now();
-		if ( ! $this->store->claim( $fingerprint, $route, $key, $hash, $now, $now->add( new DateInterval( 'PT' . $this->settings->int( IdentitySettings::IDEMPOTENCY_RETENTION_HOURS ) . 'H' ) ) ) ) {
+		$id          = $this->store->claim( $fingerprint, $route, $key, $hash, $now, $now->add( new DateInterval( 'PT' . $this->settings->int( IdentitySettings::IDEMPOTENCY_RETENTION_HOURS ) . 'H' ) ) );
+		if ( null === $id ) {
 			return $this->repeat( $this->store->find( $fingerprint, $route, $key ), $hash );
 		}
 
-		$row      = $this->store->find( $fingerprint, $route, $key );
 		$response = $next();
 		$status   = $response instanceof WP_Error ? self::status( $response ) : $response->get_status();
-		if ( null !== $row ) {
-			if ( $status >= 500 ) {
-				$this->store->release( $row['id'] );
-			} else {
-				$this->store->complete( $row['id'], $status, self::store( $response ) );
-			}
+		if ( $status >= 500 ) {
+			$this->store->release( $id );
+		} else {
+			$this->store->complete( $id, $status, self::store( $response ) );
 		}
 
 		return $response;

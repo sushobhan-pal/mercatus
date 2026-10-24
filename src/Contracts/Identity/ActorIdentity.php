@@ -27,6 +27,7 @@ final readonly class ActorIdentity {
 	 * @param list<string>|null $storePermissions Permissions inside the store; null for all of them (owners).
 	 * @param VendorScope|null  $managerScope     Vendors a manager may act on (IDN-15).
 	 * @param int|null          $apiClientId      The API client the request came through.
+	 * @param list<string>|null $clientScopes     That client's scopes; null without a client.
 	 */
 	public function __construct(
 		public ActorType $type,
@@ -36,6 +37,7 @@ final readonly class ActorIdentity {
 		public ?array $storePermissions = null,
 		public ?VendorScope $managerScope = null,
 		public ?int $apiClientId = null,
+		public ?array $clientScopes = null,
 	) {}
 
 	/**
@@ -108,6 +110,7 @@ final readonly class ActorIdentity {
 			'store_permissions' => $this->storePermissions,
 			'manager_scope'     => null === $this->managerScope ? null : array( 'vendor_ids' => $this->managerScope->vendorIds ),
 			'api_client_id'     => $this->apiClientId,
+			'client_scopes'     => $this->clientScopes,
 		);
 	}
 
@@ -121,10 +124,11 @@ final readonly class ActorIdentity {
 		if ( null === $type || ! is_int( $data['user_id'] ?? null ) || ! self::isNames( $data['permissions'] ?? null ) ) {
 			return null;
 		}
-		$store = $data['store_permissions'] ?? null;
-		$scope = $data['manager_scope'] ?? null;
-		$ids   = is_array( $scope ) ? ( $scope['vendor_ids'] ?? null ) : null;
-		if ( ( null !== $store && ! self::isNames( $store ) ) || ( null !== $scope && ! is_array( $scope ) ) || ( null !== $ids && ! self::isIds( $ids ) ) ) {
+		$store         = $data['store_permissions'] ?? null;
+		$scope         = $data['manager_scope'] ?? null;
+		$ids           = is_array( $scope ) ? ( $scope['vendor_ids'] ?? null ) : null;
+		$client_scopes = $data['client_scopes'] ?? null;
+		if ( ( null !== $store && ! self::isNames( $store ) ) || ( null !== $scope && ! is_array( $scope ) ) || ( null !== $ids && ! self::isIds( $ids ) ) || ( null !== $client_scopes && ! self::isNames( $client_scopes ) ) ) {
 			return null;
 		}
 
@@ -135,7 +139,8 @@ final readonly class ActorIdentity {
 			$data['permissions'],
 			$store,
 			null === $scope ? null : ( null === $ids ? VendorScope::all() : VendorScope::only( $ids ) ),
-			is_int( $data['api_client_id'] ?? null ) ? $data['api_client_id'] : null
+			is_int( $data['api_client_id'] ?? null ) ? $data['api_client_id'] : null,
+			$client_scopes
 		);
 	}
 
