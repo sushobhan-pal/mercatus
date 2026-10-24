@@ -130,7 +130,7 @@ Tests the TEST-3 matrix doesn't yet name. The owner is the first module that bui
 | `VendorRichTextSanitizationTest` | core.store | TM-28 |
 | `DashboardContentSecurityPolicyTest` | core.vendor | TM-28 |
 | `UploadMimeSvgPolicyTest` | core.catalog | TM-29 |
-| `SignedPrivateFileUrlTest` | core.vendor | TM-30 |
+| `SignedPrivateFileUrlTest` | Verification/KYC (Pro) | TM-30 |
 | `OutboundRequestAllowListTest` | core.store | TM-31 |
 | `SecretBoxEncryptionTest` | core.tax | TM-32 |
 | `PersonalDataExportEraseTest` | core.vendor | TM-33 |
