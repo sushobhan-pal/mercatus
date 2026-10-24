@@ -150,6 +150,9 @@ final class OpenApiGenerator {
 			? array()
 			: array( array( 'cookieNonce' => array() ), array( 'applicationPassword' => array() ) );
 		$operation['x-mercatus-access'] = $route->access;
+		if ( null !== $route->permission ) {
+			$operation['x-mercatus-permission'] = $route->permission;
+		}
 		if ( null !== $route->resourceType ) {
 			$operation['x-mercatus-resource'] = $route->resourceType;
 		}

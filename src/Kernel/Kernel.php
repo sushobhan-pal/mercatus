@@ -12,8 +12,20 @@ namespace Mercatus\Core\Kernel;
 use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Cache\CoordinationPort;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
+use Mercatus\Core\Contracts\Identity\CurrentActor;
+use Mercatus\Core\Contracts\Identity\IdentityRevisions;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
+use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Database\Seeders\ScaleSeedCommand;
+use Mercatus\Core\Identity\Application\ApiClientDirectory;
+use Mercatus\Core\Identity\Application\FeatureSource;
+use Mercatus\Core\Identity\Application\IdentityResolver;
+use Mercatus\Core\Identity\Application\ModuleExtensions;
+use Mercatus\Core\Identity\Application\RateLimiter;
+use Mercatus\Core\Identity\Infrastructure\ApiClientAuthentication;
+use Mercatus\Core\Identity\Infrastructure\ApiClients;
+use Mercatus\Core\Identity\Infrastructure\IdempotencyStore;
+use Mercatus\Core\Identity\Infrastructure\IdentityExecutionContext;
 use Mercatus\Core\Infrastructure\Audit\AuditStore;
 use Mercatus\Core\Infrastructure\Audit\BufferedAuditLog;
 use Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner;
@@ -24,7 +36,8 @@ use Mercatus\Core\Infrastructure\Outbox\OutboxWorker;
 use Mercatus\Core\Kernel\Events\DomainEventActionBridge;
 use Mercatus\Core\Contracts\Http\RouteProvider;
 use Mercatus\Core\Kernel\Http\AccessGate;
-use Mercatus\Core\Kernel\Http\FailClosedAccessGate;
+use Mercatus\Core\Kernel\Http\PolicyAccessGate;
+use Mercatus\Core\Kernel\Http\ResponseFinisher;
 use Mercatus\Core\Kernel\Http\WordPressRouteRegistrar;
 use Mercatus\Core\Shared\Actor\ExecutionContext;
 use Mercatus\Core\Shared\Audit\AuditLog;
@@ -37,7 +50,9 @@ use Mercatus\Core\Contracts\Database\MigrationSource;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Infrastructure\Database\SchemaVersionStore;
 use Mercatus\Core\Infrastructure\Database\WpdbMigrationContext;
+use Mercatus\Core\Kernel\Cli\ApiClientCommand;
 use Mercatus\Core\Kernel\Cli\KernelCommand;
+use Mercatus\Core\Kernel\Cli\ManagerCommand;
 use Mercatus\Core\Kernel\Migrations\MigrationFiles;
 use Mercatus\Core\Kernel\Migrations\MigrationReport;
 use Mercatus\Core\Kernel\Migrations\MigrationRunner;
@@ -155,9 +170,15 @@ final class Kernel {
 		$container->factory( CoordinationPort::class, static fn( Container $services ): CoordinationPort => new WpCoordinationPort( $services->get( Clock::class ) ) );
 		$container->factory( CachePort::class, static fn( Container $services ): CachePort => new WpCachePort( $services->get( Clock::class ), $services->get( CoordinationPort::class ) ) );
 		$container->factory( \wpdb::class, static fn(): \wpdb => $GLOBALS['wpdb'] );
-		$container->instance( ExecutionContext::class, new WordPressExecutionContext( $container->get( Clock::class ) ) );
-		// core.identity replaces the gate with its policy pipeline (KER-11).
-		$container->instance( AccessGate::class, new FailClosedAccessGate() );
+		$container->factory( SettingsReader::class, static fn( Container $services ): SettingsReader => $services->get( SettingsRegistry::class ) );
+		// The actor comes from core.identity (IDN-13); its resolver needs the resolved modules, so it's built on first use.
+		$context = new IdentityExecutionContext( $container->get( Clock::class ), static fn(): IdentityResolver => $container->get( IdentityResolver::class ), static fn(): ApiClientAuthentication => $container->get( ApiClientAuthentication::class ) );
+		$container->instance( ExecutionContext::class, $context );
+		$container->instance( CurrentActor::class, $context );
+		$container->factory( IdentityRevisions::class, static fn( Container $services ): IdentityRevisions => $services->get( IdentityResolver::class ) );
+		$container->factory( AccessGate::class, static fn( Container $services ): AccessGate => $services->get( PolicyAccessGate::class ) );
+		$container->factory( ApiClientDirectory::class, static fn( Container $services ): ApiClientDirectory => $services->get( ApiClients::class ) );
+		$container->factory( RateLimiter::class, static fn( Container $services ): RateLimiter => new RateLimiter( $services->get( CoordinationPort::class ), $services->get( SettingsReader::class ), static fn(): int => $services->get( Clock::class )->now()->getTimestamp() ) );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
 		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );
 		$container->factory( TransactionRunner::class, static fn( Container $services ): TransactionRunner => $services->get( WpdbTransactionRunner::class ) );
@@ -205,7 +226,10 @@ final class Kernel {
 		foreach ( $resolution->settings as $module_id => $definitions ) {
 			$settings->register( $module_id, $definitions );
 		}
-		$this->container->instance( FeatureManifest::class, ( new FeatureManifestCompiler() )->compile( $resolution->active ) );
+		$features = ( new FeatureManifestCompiler() )->compile( $resolution->active );
+		$this->container->instance( FeatureManifest::class, $features );
+		$this->container->instance( FeatureSource::class, $features );
+		$this->container->instance( ModuleExtensions::class, new ModuleExtensions( $resolution->active, fn( string $class_name ): object => $this->container->get( $class_name ) ) );
 		$this->container->instance( EventDispatcher::class, new EventDispatcher( fn(): array => $this->subscribers( $resolution->active ) ) );
 
 		foreach ( $resolution->active as $manifest ) {
@@ -239,6 +263,7 @@ final class Kernel {
 	 */
 	private function attachSiteHooks(): void {
 		add_action( 'rest_api_init', array( $this, 'registerRoutes' ) );
+		add_filter( 'rest_request_after_callbacks', array( $this->container->get( ResponseFinisher::class ), 'finish' ), 10, 3 );
 		add_action( 'admin_post_mercatus_migrate', array( $this, 'handleMigrateRequest' ) );
 		add_action( self::POLL_HOOK, array( $this, 'runPoll' ) );
 		add_action( 'action_scheduler_begin_execute', array( $this, 'enterScheduler' ) );
@@ -248,6 +273,15 @@ final class Kernel {
 			$command = new KernelCommand( $this );
 			\WP_CLI::add_command( 'mercatus migrate', array( $command, 'migrate' ) );
 			\WP_CLI::add_command( 'mercatus outbox:work', array( $command, 'work' ) );
+			$managers = new ManagerCommand( $this );
+			\WP_CLI::add_command( 'mercatus manager appoint', array( $managers, 'appoint' ) );
+			\WP_CLI::add_command( 'mercatus manager remove', array( $managers, 'remove' ) );
+			\WP_CLI::add_command( 'mercatus manager list', array( $managers, 'listManagers' ) );
+			$clients = new ApiClientCommand( $this );
+			\WP_CLI::add_command( 'mercatus api-client create', array( $clients, 'create' ) );
+			\WP_CLI::add_command( 'mercatus api-client list', array( $clients, 'listClients' ) );
+			\WP_CLI::add_command( 'mercatus api-client revoke', array( $clients, 'revoke' ) );
+			\WP_CLI::add_command( 'mercatus api-client password', array( $clients, 'password' ) );
 			// Development tooling, absent from the plugin zip (KER-12).
 			if ( class_exists( ScaleSeedCommand::class ) ) {
 				\WP_CLI::add_command( 'mercatus seed:scale', new ScaleSeedCommand( $this ) );
@@ -307,7 +341,7 @@ final class Kernel {
 			return null;
 		}
 		$context = $this->container->get( ExecutionContext::class );
-		if ( ! $context instanceof WordPressExecutionContext ) {
+		if ( ! $context instanceof IdentityExecutionContext ) {
 			return null;
 		}
 
@@ -353,6 +387,9 @@ final class Kernel {
 		}
 		$now = $this->container->get( Clock::class )->now();
 		$this->container->get( OutboxStore::class )->purge( $now->sub( new DateInterval( 'P' . $settings->int( KernelSettings::OUTBOX_RETENTION_DAYS ) . 'D' ) ) );
+		if ( in_array( 'core.identity', $this->resolution()->activeIds(), true ) ) {
+			$this->container->get( IdempotencyStore::class )->purge( $now );
+		}
 		$years = $settings->int( KernelSettings::AUDIT_PURGE_AFTER_YEARS );
 		if ( $years > 0 ) {
 			$this->container->get( AuditStore::class )->purge( $now->sub( new DateInterval( 'P' . $years . 'Y' ) ) );
@@ -384,7 +421,7 @@ final class Kernel {
 	 */
 	public function handleMigrateRequest(): void {
 		check_admin_referer( 'mercatus_migrate' );
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		if ( ! self::administrator() ) {
 			wp_die( esc_html__( 'You are not allowed to update the Mercatus database.', 'mercatus' ), '', array( 'response' => 403 ) );
 		}
 		$this->migrate();
@@ -461,13 +498,21 @@ final class Kernel {
 	}
 
 	/**
+	 * Whether the current user is a marketplace administrator (IDN-15). Notices shown before modules load
+	 * keep WordPress's own checks.
+	 */
+	private static function administrator(): bool {
+		return null !== self::$instance && self::$instance->container->get( CurrentActor::class )->identity()->isAdministrator();
+	}
+
+	/**
 	 * Tells administrators the database needs updating, with a link that does it.
 	 */
 	private static function migrationNotice(): void {
 		add_action(
 			'admin_notices',
 			static function (): void {
-				if ( ! current_user_can( 'manage_woocommerce' ) ) {
+				if ( ! self::administrator() ) {
 					return;
 				}
 				printf(

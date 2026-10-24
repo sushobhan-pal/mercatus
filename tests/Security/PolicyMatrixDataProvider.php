@@ -16,8 +16,8 @@ use WP_REST_Server;
 /**
  * Every route's access level says which actors must be refused and with which status (SEC-4: another
  * vendor's resource is 404, a refusal inside one's own tenant is 403). New routes are covered as soon as
- * they're registered. This is the Phase 0 convention; core.identity extends it with named permissions,
- * staff scope and the remaining SEC-1 actors.
+ * they're registered. core.identity added marketplace managers and named permissions (IDN-4); staff scope
+ * and the remaining SEC-1 actors join with the modules that create them.
  */
 final class PolicyMatrixDataProvider {
 
@@ -33,6 +33,11 @@ final class PolicyMatrixDataProvider {
 	public const OTHER_VENDOR_OWNER = 'other_vendor_owner';
 
 	/**
+	 * An appointed manager who doesn't hold the route's permission.
+	 */
+	public const MARKETPLACE_MANAGER = 'marketplace_manager';
+
+	/**
 	 * Expected status per refused actor, by access level.
 	 */
 	private const DENIALS = array(
@@ -44,9 +49,10 @@ final class PolicyMatrixDataProvider {
 			self::OTHER_VENDOR_OWNER => 404,
 		),
 		RouteOperation::ACCESS_ADMIN         => array(
-			self::ANONYMOUS    => 401,
-			self::CUSTOMER     => 403,
-			self::VENDOR_OWNER => 403,
+			self::ANONYMOUS           => 401,
+			self::CUSTOMER            => 403,
+			self::VENDOR_OWNER        => 403,
+			self::MARKETPLACE_MANAGER => 403,
 		),
 	);
 
@@ -69,7 +75,11 @@ final class PolicyMatrixDataProvider {
 	public static function denials( array $operations ): array {
 		$cases = array();
 		foreach ( $operations as $operation ) {
-			foreach ( self::DENIALS[ $operation->access ] ?? array() as $actor => $status ) {
+			$denials = self::DENIALS[ $operation->access ] ?? array();
+			if ( RouteOperation::ACCESS_AUTHENTICATED === $operation->access && null !== $operation->permission ) {
+				$denials[ self::CUSTOMER ] = 403;
+			}
+			foreach ( $denials as $actor => $status ) {
 				$cases[ $operation->label() . ' as ' . $actor ] = array( $operation, $actor, $status );
 			}
 		}

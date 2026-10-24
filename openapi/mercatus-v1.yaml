@@ -12,6 +12,495 @@ servers:
   -
     url: /wp-json/mercatus/v1
 paths:
+  /api-clients:
+    get:
+      operationId: getApiClients
+      summary: 'List API clients'
+      tags:
+        - api-clients
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - id
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+        -
+          name: status
+          in: query
+          required: false
+          description: 'Filter by status.'
+          schema:
+            type: string
+            enum:
+              - active
+              - revoked
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        kind:
+                          type: string
+                          enum:
+                            - integration
+                            - app
+                        user_id:
+                          type:
+                            - integer
+                            - 'null'
+                        scopes:
+                          type: array
+                          items:
+                            type: string
+                        ip_allow_list:
+                          type: array
+                          items:
+                            type: string
+                        password_lifetime_days:
+                          type: integer
+                        status:
+                          type: string
+                          enum:
+                            - active
+                            - revoked
+                        last_used_at:
+                          type:
+                            - string
+                            - 'null'
+                        created_at:
+                          type: string
+                        updated_at:
+                          type: string
+                        version:
+                          type: integer
+                      required:
+                        - id
+                        - name
+                        - kind
+                        - user_id
+                        - scopes
+                        - ip_allow_list
+                        - password_lifetime_days
+                        - status
+                        - last_used_at
+                        - created_at
+                        - updated_at
+                        - version
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: identity.api_clients.manage
+      x-mercatus-resource: api_client
+    post:
+      operationId: postApiClients
+      summary: 'Register an API client'
+      tags:
+        - api-clients
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 191
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                ip_allow_list:
+                  type: array
+                  items:
+                    type: string
+                password_lifetime_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+                kind:
+                  type: string
+                  enum:
+                    - integration
+                    - app
+                user_id:
+                  type: integer
+                  description: 'The user an integration acts as.'
+              required:
+                - name
+                - scopes
+                - kind
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - integration
+                      - app
+                  user_id:
+                    type:
+                      - integer
+                      - 'null'
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                  ip_allow_list:
+                    type: array
+                    items:
+                      type: string
+                  password_lifetime_days:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - revoked
+                  last_used_at:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - name
+                  - kind
+                  - user_id
+                  - scopes
+                  - ip_allow_list
+                  - password_lifetime_days
+                  - status
+                  - last_used_at
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: identity.api_clients.manage
+      x-mercatus-resource: api_client
+  '/api-clients/{id}':
+    patch:
+      operationId: patchApiClientsId
+      summary: 'Change an API client'
+      tags:
+        - api-clients
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 191
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                ip_allow_list:
+                  type: array
+                  items:
+                    type: string
+                password_lifetime_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - integration
+                      - app
+                  user_id:
+                    type:
+                      - integer
+                      - 'null'
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                  ip_allow_list:
+                    type: array
+                    items:
+                      type: string
+                  password_lifetime_days:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - revoked
+                  last_used_at:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - name
+                  - kind
+                  - user_id
+                  - scopes
+                  - ip_allow_list
+                  - password_lifetime_days
+                  - status
+                  - last_used_at
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: identity.api_clients.manage
+      x-mercatus-resource: api_client
+  '/api-clients/{id}/passwords':
+    post:
+      operationId: postApiClientsIdPasswords
+      summary: "Create an integration's application password"
+      tags:
+        - api-clients
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                  password:
+                    type: string
+                required:
+                  - uuid
+                  - password
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: identity.api_clients.manage
+      x-mercatus-resource: api_client
+  '/api-clients/{id}/revoke':
+    post:
+      operationId: postApiClientsIdRevoke
+      summary: 'Revoke an API client'
+      tags:
+        - api-clients
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - integration
+                      - app
+                  user_id:
+                    type:
+                      - integer
+                      - 'null'
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                  ip_allow_list:
+                    type: array
+                    items:
+                      type: string
+                  password_lifetime_days:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - revoked
+                  last_used_at:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - name
+                  - kind
+                  - user_id
+                  - scopes
+                  - ip_allow_list
+                  - password_lifetime_days
+                  - status
+                  - last_used_at
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: identity.api_clients.manage
+      x-mercatus-resource: api_client
   /features:
     get:
       operationId: getFeatures
@@ -106,7 +595,192 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.health.view
       x-mercatus-resource: health
+  /me:
+    get:
+      operationId: getMe
+      summary: 'The signed-in actor, its permissions, the features and the dashboard menu'
+      tags:
+        - me
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actor:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - anonymous
+                          - customer
+                          - vendor_owner
+                          - vendor_staff
+                          - delivery_agent
+                          - affiliate
+                          - marketplace_manager
+                          - administrator
+                          - integration_client
+                          - webhook_provider
+                      user_id:
+                        type: integer
+                      display_name:
+                        type: string
+                      vendor_id:
+                        type:
+                          - integer
+                          - 'null'
+                    required:
+                      - type
+                      - user_id
+                      - display_name
+                      - vendor_id
+                  permissions:
+                    type: array
+                    items:
+                      type: string
+                  features:
+                    type: object
+                    properties:
+                      modules:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                            - id
+                      features:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - modules
+                      - features
+                  menu:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        screen:
+                          type: string
+                        children:
+                          type: array
+                          items:
+                            type: object
+                      required:
+                        - id
+                        - label
+                        - screen
+                        - children
+                required:
+                  - actor
+                  - permissions
+                  - features
+                  - menu
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: authenticated
+      x-mercatus-resource: actor
+  /me/app-passwords:
+    get:
+      operationId: getMeAppPasswords
+      summary: 'Your app sign-ins'
+      tags:
+        - me
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        uuid:
+                          type: string
+                        name:
+                          type: string
+                        client:
+                          type:
+                            - string
+                            - 'null'
+                        created:
+                          type: string
+                        last_used:
+                          type:
+                            - string
+                            - 'null'
+                      required:
+                        - uuid
+                        - name
+                        - client
+                        - created
+                        - last_used
+                required:
+                  - items
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: authenticated
+      x-mercatus-resource: app_password
+  '/me/app-passwords/{uuid}/revoke':
+    post:
+      operationId: postMeAppPasswordsUuidRevoke
+      summary: 'Revoke one of your app sign-ins'
+      tags:
+        - me
+      parameters:
+        -
+          name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f-]{36}$'
+      responses:
+        2XX:
+          description: Success.
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: authenticated
+      x-mercatus-resource: app_password
   /modules:
     get:
       operationId: getModules
@@ -148,6 +822,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.modules.manage
       x-mercatus-resource: module
   '/modules/{id}/activate':
     post:
@@ -188,6 +863,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.modules.manage
       x-mercatus-resource: module
   '/modules/{id}/deactivate':
     post:
@@ -228,6 +904,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.modules.manage
       x-mercatus-resource: module
   /system/cache/flush-group:
     post:
@@ -273,6 +950,7 @@ paths:
         -
           applicationPassword: []
       x-mercatus-access: admin
+      x-mercatus-permission: kernel.cache.flush
       x-mercatus-resource: cache_group
 components:
   schemas:

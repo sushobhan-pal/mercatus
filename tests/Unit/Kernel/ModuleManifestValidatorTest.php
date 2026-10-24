@@ -94,18 +94,27 @@ final class ModuleManifestValidatorTest extends TestCase {
 				$this->addon( 'pro.missing', hooks: 'Mercatus\Missing\Hooks' ),
 				$this->addon( 'pro.wrong', hooks: NotHooks::class ),
 				$this->addon( 'pro.fine', hooks: ProbeHooks::class ),
+				new RegisteredModule( new ModuleManifest( 'pro.badperms', '1.0.0', permissions: ProbeHooks::class ), true, false ),
+				new RegisteredModule( new ModuleManifest( 'pro.badmenu', '1.0.0', dashboardMenu: ProbeHooks::class ), true, false ),
+				new RegisteredModule( new ModuleManifest( 'pro.badclaims', '1.0.0', claimSources: array( ProbeHooks::class ) ), true, false ),
 			),
 			array(
-				'pro.missing' => true,
-				'pro.wrong'   => true,
-				'pro.fine'    => true,
+				'pro.missing'   => true,
+				'pro.wrong'     => true,
+				'pro.fine'      => true,
+				'pro.badperms'  => true,
+				'pro.badmenu'   => true,
+				'pro.badclaims' => true,
 			)
 		);
 
 		$this->assertSame(
 			array(
-				'pro.missing' => Validator::MISSING_CLASS,
-				'pro.wrong'   => Validator::INVALID_CLASS,
+				'pro.missing'   => Validator::MISSING_CLASS,
+				'pro.wrong'     => Validator::INVALID_CLASS,
+				'pro.badperms'  => Validator::INVALID_CLASS,
+				'pro.badmenu'   => Validator::INVALID_CLASS,
+				'pro.badclaims' => Validator::INVALID_CLASS,
 			),
 			$resolution->rejected
 		);

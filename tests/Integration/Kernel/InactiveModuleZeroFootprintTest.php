@@ -12,6 +12,7 @@ namespace Mercatus\Core\Tests\Integration\Kernel;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Contracts\Module\ModuleRegistrar;
 use Mercatus\Core\Kernel\Kernel;
+use Mercatus\Core\Tests\Fixtures\Identity\TestActorClaims;
 use Mercatus\Core\Tests\Fixtures\Modules\ProbeHooks;
 use Mercatus\Core\Tests\Fixtures\Modules\ProbeSettings;
 use WP_UnitTestCase;
@@ -70,7 +71,7 @@ final class InactiveModuleZeroFootprintTest extends WP_UnitTestCase {
 		$on = Kernel::create( MERCATUS_VERSION );
 		$on->start();
 
-		$this->assertSame( array( 'core.kernel', 'pro.probe' ), $on->resolution()->activeIds() );
+		$this->assertSame( array( 'core.kernel', 'core.identity', 'pro.probe' ), array_values( array_diff( $on->resolution()->activeIds(), array( TestActorClaims::MODULE ) ) ) );
 		$this->assertSame( 1, ProbeHooks::$built );
 		$this->assertNotFalse( has_filter( ProbeHooks::FILTER ) );
 		$this->assertSame( 'hello', $on->settings()->string( 'pro.probe.greeting' ) );

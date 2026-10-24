@@ -12,6 +12,7 @@ namespace Mercatus\Core\Kernel\Settings;
 use InvalidArgumentException;
 use LogicException;
 use Mercatus\Core\Contracts\Settings\SettingDefinition;
+use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Contracts\Settings\SettingType;
 use Mercatus\Core\Shared\Errors\DomainError;
 
@@ -19,7 +20,7 @@ use Mercatus\Core\Shared\Errors\DomainError;
  * Holds the active modules' settings. Reads return the stored value, or the default when nothing is stored or
  * the stored value no longer fits (for example after its definition changed). Writes are validated first.
  */
-final class SettingsRegistry {
+final class SettingsRegistry implements SettingsReader {
 
 	/**
 	 * Definitions by key.

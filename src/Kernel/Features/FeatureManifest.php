@@ -9,10 +9,13 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Kernel\Features;
 
+use Mercatus\Core\Identity\Application\FeatureSource;
+use Mercatus\Core\Shared\Http\Schema;
+
 /**
  * Served by GET /features and embedded in GET /me. Module versions are shown to administrators only.
  */
-final readonly class FeatureManifest {
+final readonly class FeatureManifest implements FeatureSource {
 
 	/**
 	 * Creates the manifest.
@@ -49,6 +52,30 @@ final readonly class FeatureManifest {
 		return array(
 			'modules'  => $modules,
 			'features' => $this->features,
+		);
+	}
+
+	public function schema(): array {
+		return Schema::object(
+			array(
+				'modules'  => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'      => array(
+								'type'     => 'string',
+								'required' => true,
+							),
+							'version' => array( 'type' => 'string' ),
+						),
+					),
+				),
+				'features' => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'string' ),
+				),
+			)
 		);
 	}
 }

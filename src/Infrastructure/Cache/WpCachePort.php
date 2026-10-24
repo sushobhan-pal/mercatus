@@ -163,7 +163,10 @@ final class WpCachePort implements CachePort {
 
 	public function bumpRevision( string $scope ): int {
 		$current = $this->revision( $scope );
-		$bumped  = wp_cache_incr( $scope, 1, self::REVISIONS );
+		// The pointer may have been evicted since this request read it; recreate it before incrementing, or
+		// Redis would restart it at 1 (PLAT-5).
+		wp_cache_add( $scope, $current, self::REVISIONS );
+		$bumped = wp_cache_incr( $scope, 1, self::REVISIONS );
 		if ( ! is_int( $bumped ) ) {
 			$bumped = max( $this->seed(), $current + 1 );
 			wp_cache_set( $scope, $bumped, self::REVISIONS );

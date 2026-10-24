@@ -11,6 +11,8 @@ namespace Mercatus\Core\Tests\Integration\Outbox;
 
 use DateTimeImmutable;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
+use Mercatus\Core\Identity\Application\IdentityResolver;
+use Mercatus\Core\Identity\Infrastructure\IdentityExecutionContext;
 use Mercatus\Core\Infrastructure\Audit\AuditStore;
 use Mercatus\Core\Infrastructure\Audit\BufferedAuditLog;
 use Mercatus\Core\Infrastructure\Database\UnitOfWork;
@@ -23,11 +25,12 @@ use Mercatus\Core\Infrastructure\Outbox\OutboxProcessor;
 use Mercatus\Core\Infrastructure\Outbox\OutboxStore;
 use Mercatus\Core\Infrastructure\Outbox\OutboxWorker;
 use Mercatus\Core\Infrastructure\Outbox\RetryBackoffPolicy;
-use Mercatus\Core\Kernel\WordPressExecutionContext;
+use Mercatus\Core\Kernel\Kernel;
 use Mercatus\Core\Shared\Actor\ActorRef;
 use Mercatus\Core\Shared\Events\DomainEvent;
 use Mercatus\Core\Shared\Events\EventLane;
 use Mercatus\Core\Tests\Fixtures\Clock\FrozenClock;
+use RuntimeException;
 use WP_UnitTestCase;
 
 /**
@@ -38,7 +41,7 @@ abstract class OutboxIntegrationTestCase extends WP_UnitTestCase {
 
 	protected FrozenClock $clock;
 
-	protected WordPressExecutionContext $context;
+	protected IdentityExecutionContext $context;
 
 	protected OutboxStore $store;
 
@@ -61,7 +64,7 @@ abstract class OutboxIntegrationTestCase extends WP_UnitTestCase {
 		global $wpdb;
 		parent::set_up();
 		$this->clock   = new FrozenClock();
-		$this->context = new WordPressExecutionContext( $this->clock );
+		$this->context = new IdentityExecutionContext( $this->clock, static fn(): IdentityResolver => self::siteKernel()->container()->get( IdentityResolver::class ) );
 		$unit          = new UnitOfWork();
 		$this->store   = new OutboxStore( $wpdb, new EventPayloadSerializer() );
 		$processor     = new OutboxProcessor( $this->store, new EventDispatcher( fn(): array => $this->subscribers ), new RetryBackoffPolicy( static fn( int $min ): int => $min ), new BulkEventCoalescer(), $this->clock );
@@ -117,5 +120,14 @@ abstract class OutboxIntegrationTestCase extends WP_UnitTestCase {
 	 */
 	protected function event( string $id, EventLane $lane = EventLane::Critical ): DomainEvent {
 		return new DomainEvent( 'store.profile.updated', 'test-' . $id, new DateTimeImmutable(), 'store', $id, 1, ActorRef::system(), 'req_test', array( 'n' => $id ), 1, $lane );
+	}
+
+	/**
+	 * The kernel the site booted, whose identity resolver the context uses.
+	 *
+	 * @throws RuntimeException When it didn't boot.
+	 */
+	protected static function siteKernel(): Kernel {
+		return Kernel::instance() ?? throw new RuntimeException( 'The site kernel did not boot.' );
 	}
 }

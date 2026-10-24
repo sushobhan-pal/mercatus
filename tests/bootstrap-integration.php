@@ -57,4 +57,49 @@ tests_add_filter(
 	5
 );
 
+// Test-only claims for vendor owners and staff, until core.vendor and Pro provide real ones (IDN-3). An add-on
+// module starts off, so it's switched on once, before the site's kernel boots.
+tests_add_filter(
+	'mercatus_register_modules',
+	static function ( \Mercatus\Core\Contracts\Module\ModuleRegistrar $registrar ): void {
+		$registrar->register( new \Mercatus\Core\Contracts\Module\ModuleManifest( \Mercatus\Core\Tests\Fixtures\Identity\TestActorClaims::MODULE, '1.0.0', claimSources: array( \Mercatus\Core\Tests\Fixtures\Identity\TestActorClaims::class ) ) );
+	}
+);
+tests_add_filter(
+	'plugins_loaded',
+	static function (): void {
+		$kernel = \Mercatus\Core\Kernel\Kernel::create( MERCATUS_VERSION );
+		$kernel->start();
+		$kernel->activation()->activate( \Mercatus\Core\Tests\Fixtures\Identity\TestActorClaims::MODULE );
+	},
+	6
+);
+
+// Each test runs inside the test suite's transaction, so the site kernel's transactions use savepoints there
+// (KER-21); a real COMMIT would end the test's transaction and leak its rows into later tests.
+tests_add_filter(
+	'plugins_loaded',
+	static function (): void {
+		global $wpdb;
+		$kernel = \Mercatus\Core\Kernel\Kernel::instance();
+		if ( null === $kernel ) {
+			return;
+		}
+		$services = $kernel->container();
+		$services->instance(
+			\Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner::class,
+			new \Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner(
+				$wpdb,
+				$services->get( \Mercatus\Core\Infrastructure\Database\UnitOfWork::class ),
+				$services->get( \Mercatus\Core\Infrastructure\Outbox\OutboxStore::class ),
+				$services->get( \Mercatus\Core\Infrastructure\Audit\AuditStore::class ),
+				$services->get( \Mercatus\Core\Infrastructure\Outbox\OutboxProcessor::class ),
+				$services->get( \Mercatus\Core\Shared\Clock\Clock::class ),
+				true
+			)
+		);
+	},
+	11
+);
+
 require_once $mercatus_tests_dir . '/includes/bootstrap.php';

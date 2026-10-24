@@ -15,6 +15,9 @@ use Mercatus\Core\Contracts\Database\MigrationSource;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
 use Mercatus\Core\Contracts\Health\HealthCheck;
 use Mercatus\Core\Contracts\Http\RouteProvider;
+use Mercatus\Core\Contracts\Identity\ClaimSource;
+use Mercatus\Core\Contracts\Identity\DashboardMenuProvider;
+use Mercatus\Core\Contracts\Identity\PermissionProvider;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Contracts\Settings\SettingDefinition;
@@ -129,7 +132,7 @@ final class ModuleManifestValidator {
 			return self::INCOMPATIBLE_CORE;
 		}
 
-		$classes = array_filter( array_merge( array( $manifest->routes, $manifest->migrations, $manifest->permissions, $manifest->dashboardMenu, $manifest->settings, $manifest->hooks ), $manifest->eventSubscribers, $manifest->healthChecks ) );
+		$classes = array_filter( array_merge( array( $manifest->routes, $manifest->migrations, $manifest->permissions, $manifest->dashboardMenu, $manifest->settings, $manifest->hooks ), $manifest->eventSubscribers, $manifest->healthChecks, $manifest->claimSources ) );
 		foreach ( $classes as $class ) {
 			if ( ! class_exists( $class ) ) {
 				return self::MISSING_CLASS;
@@ -143,6 +146,17 @@ final class ModuleManifestValidator {
 		}
 		if ( null !== $manifest->routes && ! is_a( $manifest->routes, RouteProvider::class, true ) ) {
 			return self::INVALID_CLASS;
+		}
+		if ( null !== $manifest->permissions && ! is_a( $manifest->permissions, PermissionProvider::class, true ) ) {
+			return self::INVALID_CLASS;
+		}
+		if ( null !== $manifest->dashboardMenu && ! is_a( $manifest->dashboardMenu, DashboardMenuProvider::class, true ) ) {
+			return self::INVALID_CLASS;
+		}
+		foreach ( $manifest->claimSources as $source ) {
+			if ( ! is_a( $source, ClaimSource::class, true ) ) {
+				return self::INVALID_CLASS;
+			}
 		}
 		foreach ( $manifest->eventSubscribers as $subscriber ) {
 			if ( ! is_a( $subscriber, EventSubscriber::class, true ) ) {

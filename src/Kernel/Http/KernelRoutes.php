@@ -11,6 +11,8 @@ namespace Mercatus\Core\Kernel\Http;
 
 use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Http\Access;
+use Mercatus\Core\Kernel\KernelPermissions;
+use Mercatus\Core\Shared\Http\Schema;
 use Mercatus\Core\Contracts\Http\RouteProvider;
 use Mercatus\Core\Contracts\Http\RouteRegistrar;
 use Mercatus\Core\Kernel\Health\HealthReport;
@@ -37,8 +39,8 @@ final class KernelRoutes implements RouteProvider {
 	public function __construct( private Kernel $kernel, private AccessGate $gate ) {}
 
 	public function routes( RouteRegistrar $routes ): void {
-		$routes->add( '/features', array( $this->endpoint( 'GET', 'features', Access::Open, 'feature', 'Active modules and their features' ) ), static fn(): array => self::featuresSchema() );
-		$routes->add( '/health', array( $this->endpoint( 'GET', 'health', Access::Admin, 'health', 'Health report' ) ), static fn(): array => self::healthSchema() );
+		$routes->add( '/features', array( $this->endpoint( 'GET', 'features', Access::Open, 'feature', 'Active modules and their features' ) ), fn(): array => $this->kernel->features()->schema() );
+		$routes->add( '/health', array( $this->endpoint( 'GET', 'health', Access::Admin, 'health', 'Health report', permission: KernelPermissions::HEALTH_VIEW ) ), static fn(): array => self::healthSchema() );
 		$routes->add(
 			'/system/cache/flush-group',
 			array(
@@ -48,6 +50,7 @@ final class KernelRoutes implements RouteProvider {
 					Access::Admin,
 					'cache_group',
 					'Clear a cache group',
+					KernelPermissions::CACHE_FLUSH,
 					array(
 						'group' => array(
 							'type'        => 'string',
@@ -58,14 +61,14 @@ final class KernelRoutes implements RouteProvider {
 					)
 				),
 			),
-			static fn(): array => self::object(
+			static fn(): array => Schema::object(
 				array(
 					'group'   => array( 'type' => 'string' ),
 					'flushed' => array( 'type' => 'boolean' ),
 				)
 			)
 		);
-		$routes->add( '/modules', array( $this->endpoint( 'GET', 'modules', Access::Admin, 'module', 'Optional modules and their state' ) ), static fn(): array => self::modulesSchema() );
+		$routes->add( '/modules', array( $this->endpoint( 'GET', 'modules', Access::Admin, 'module', 'Optional modules and their state', permission: KernelPermissions::MODULES_MANAGE ) ), static fn(): array => self::modulesSchema() );
 		foreach ( array( 'activate', 'deactivate' ) as $action ) {
 			$routes->add(
 				'/modules/' . self::MODULE_ID . '/' . $action,
@@ -76,6 +79,7 @@ final class KernelRoutes implements RouteProvider {
 						Access::Admin,
 						'module',
 						'activate' === $action ? 'Switch an optional module on' : 'Switch an optional module off',
+						KernelPermissions::MODULES_MANAGE,
 						array(
 							'id' => array(
 								'type'        => 'string',
@@ -84,7 +88,7 @@ final class KernelRoutes implements RouteProvider {
 						)
 					),
 				),
-				static fn(): array => self::object(
+				static fn(): array => Schema::object(
 					array(
 						'id'     => array( 'type' => 'string' ),
 						'active' => array( 'type' => 'boolean' ),
@@ -100,7 +104,7 @@ final class KernelRoutes implements RouteProvider {
 	 * @param WP_REST_Request $request Request.
 	 */
 	public function features( WP_REST_Request $request ): WP_REST_Response {
-		return new WP_REST_Response( $this->kernel->features()->toArray( true === $this->gate->check( Access::Admin, $request ) ) );
+		return new WP_REST_Response( $this->kernel->features()->toArray( true === $this->gate->check( Access::Admin, null, $request ) ) );
 	}
 
 	/**
@@ -182,48 +186,23 @@ final class KernelRoutes implements RouteProvider {
 	 * @param Access                              $access   Access level.
 	 * @param string                              $resource_type Resource type.
 	 * @param string                              $summary  Summary for the API reference.
+	 * @param string|null                         $permission Named permission a manager needs (IDN-4).
 	 * @param array<string, array<string, mixed>> $args     Arguments.
 	 * @return array<string, mixed>
 	 */
-	private function endpoint( string $method, string $callback, Access $access, string $resource_type, string $summary, array $args = array() ): array {
+	private function endpoint( string $method, string $callback, Access $access, string $resource_type, string $summary, ?string $permission = null, array $args = array() ): array {
 		return array(
 			'methods'  => $method,
 			'callback' => array( $this, $callback ),
 			'args'     => $args,
-			'mercatus' => array(
-				'access'   => $access->value,
-				'resource' => $resource_type,
-				'summary'  => $summary,
+			'mercatus' => array_filter(
+				array(
+					'access'     => $access->value,
+					'permission' => $permission,
+					'resource'   => $resource_type,
+					'summary'    => $summary,
+				)
 			),
-		);
-	}
-
-	/**
-	 * Schema of GET /features.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private static function featuresSchema(): array {
-		return self::object(
-			array(
-				'modules'  => array(
-					'type'  => 'array',
-					'items' => array(
-						'type'       => 'object',
-						'properties' => array(
-							'id'      => array(
-								'type'     => 'string',
-								'required' => true,
-							),
-							'version' => array( 'type' => 'string' ),
-						),
-					),
-				),
-				'features' => array(
-					'type'  => 'array',
-					'items' => array( 'type' => 'string' ),
-				),
-			)
 		);
 	}
 
@@ -233,7 +212,7 @@ final class KernelRoutes implements RouteProvider {
 	 * @return array<string, mixed>
 	 */
 	private static function healthSchema(): array {
-		return self::object(
+		return Schema::object(
 			array(
 				'status' => array(
 					'type' => 'string',
@@ -241,7 +220,7 @@ final class KernelRoutes implements RouteProvider {
 				),
 				'checks' => array(
 					'type'  => 'array',
-					'items' => self::object(
+					'items' => Schema::object(
 						array(
 							'id'      => array( 'type' => 'string' ),
 							'status'  => array(
@@ -263,11 +242,11 @@ final class KernelRoutes implements RouteProvider {
 	 * @return array<string, mixed>
 	 */
 	private static function modulesSchema(): array {
-		return self::object(
+		return Schema::object(
 			array(
 				'modules' => array(
 					'type'  => 'array',
-					'items' => self::object(
+					'items' => Schema::object(
 						array(
 							'id'      => array( 'type' => 'string' ),
 							'version' => array( 'type' => 'string' ),
@@ -276,24 +255,6 @@ final class KernelRoutes implements RouteProvider {
 					),
 				),
 			)
-		);
-	}
-
-	/**
-	 * An object schema whose properties are all required.
-	 *
-	 * @param array<string, array<string, mixed>> $properties Properties.
-	 * @return array<string, mixed>
-	 */
-	private static function object( array $properties ): array {
-		foreach ( $properties as $name => $property ) {
-			$properties[ $name ] = $property + array( 'required' => true );
-		}
-
-		return array(
-			'$schema'    => 'http://json-schema.org/draft-04/schema#',
-			'type'       => 'object',
-			'properties' => $properties,
 		);
 	}
 }

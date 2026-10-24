@@ -10,8 +10,18 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Kernel\Modules;
 
 use Mercatus\Core\Contracts\Module\ModuleManifest;
+use Mercatus\Core\Identity\Api\IdentityMenu;
+use Mercatus\Core\Identity\Api\IdentityPermissions;
+use Mercatus\Core\Identity\Api\IdentityRoutes;
+use Mercatus\Core\Identity\Application\IdentitySettings;
+use Mercatus\Core\Identity\Application\PermissionsHealthCheck;
+use Mercatus\Core\Identity\Application\RateLimitingHealthCheck;
+use Mercatus\Core\Identity\Infrastructure\IdentityHooks;
+use Mercatus\Core\Identity\Infrastructure\IdentityMigrations;
+use Mercatus\Core\Identity\Infrastructure\WordPressClaimSource;
 use Mercatus\Core\Kernel\Http\KernelRoutes;
 use Mercatus\Core\Kernel\KernelMigrations;
+use Mercatus\Core\Kernel\KernelPermissions;
 use Mercatus\Core\Kernel\KernelSettings;
 
 /**
@@ -27,7 +37,23 @@ final class CoreModules {
 	 */
 	public static function all( string $version ): array {
 		return array(
-			new RegisteredModule( new ModuleManifest( id: 'core.kernel', version: $version, routes: KernelRoutes::class, migrations: KernelMigrations::class, settings: KernelSettings::class ), false, true ),
+			new RegisteredModule( new ModuleManifest( id: 'core.kernel', version: $version, routes: KernelRoutes::class, migrations: KernelMigrations::class, permissions: KernelPermissions::class, settings: KernelSettings::class ), false, true ),
+			new RegisteredModule(
+				new ModuleManifest(
+					id: 'core.identity',
+					version: $version,
+					routes: IdentityRoutes::class,
+					migrations: IdentityMigrations::class,
+					permissions: IdentityPermissions::class,
+					dashboardMenu: IdentityMenu::class,
+					healthChecks: array( PermissionsHealthCheck::class, RateLimitingHealthCheck::class ),
+					settings: IdentitySettings::class,
+					hooks: IdentityHooks::class,
+					claimSources: array( WordPressClaimSource::class ),
+				),
+				false,
+				true
+			),
 		);
 	}
 }
