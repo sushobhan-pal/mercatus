@@ -16,14 +16,17 @@ use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Contracts\Identity\IdentityRevisions;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
+use Mercatus\Core\Contracts\Settings\SettingsWriter;
 use Mercatus\Core\Database\Seeders\ScaleSeedCommand;
 use Mercatus\Core\Identity\Application\ApiClientDirectory;
+use Mercatus\Core\Identity\Application\ManagerDirectory;
 use Mercatus\Core\Identity\Application\FeatureSource;
 use Mercatus\Core\Identity\Application\IdentityResolver;
 use Mercatus\Core\Identity\Application\ModuleExtensions;
 use Mercatus\Core\Identity\Application\RateLimiter;
 use Mercatus\Core\Identity\Infrastructure\ApiClientAuthentication;
 use Mercatus\Core\Identity\Infrastructure\ApiClients;
+use Mercatus\Core\Identity\Infrastructure\ManagerAppointments;
 use Mercatus\Core\Identity\Infrastructure\IdempotencyStore;
 use Mercatus\Core\Identity\Infrastructure\IdentityExecutionContext;
 use Mercatus\Core\Infrastructure\Audit\AuditStore;
@@ -173,6 +176,7 @@ final class Kernel {
 		$container->factory( CachePort::class, static fn( Container $services ): CachePort => new WpCachePort( $services->get( Clock::class ), $services->get( CoordinationPort::class ) ) );
 		$container->factory( \wpdb::class, static fn(): \wpdb => $GLOBALS['wpdb'] );
 		$container->factory( SettingsReader::class, static fn( Container $services ): SettingsReader => $services->get( SettingsRegistry::class ) );
+		$container->factory( SettingsWriter::class, static fn( Container $services ): SettingsWriter => $services->get( SettingsRegistry::class ) );
 		// The actor comes from core.identity (IDN-13); its resolver needs the resolved modules, so it's built on first use.
 		$context = new IdentityExecutionContext( $container->get( Clock::class ), static fn(): IdentityResolver => $container->get( IdentityResolver::class ), static fn(): ApiClientAuthentication => $container->get( ApiClientAuthentication::class ) );
 		$container->instance( ExecutionContext::class, $context );
@@ -180,6 +184,7 @@ final class Kernel {
 		$container->factory( IdentityRevisions::class, static fn( Container $services ): IdentityRevisions => $services->get( IdentityResolver::class ) );
 		$container->factory( AccessGate::class, static fn( Container $services ): AccessGate => $services->get( PolicyAccessGate::class ) );
 		$container->factory( ApiClientDirectory::class, static fn( Container $services ): ApiClientDirectory => $services->get( ApiClients::class ) );
+		$container->factory( ManagerDirectory::class, static fn( Container $services ): ManagerDirectory => $services->get( ManagerAppointments::class ) );
 		$container->factory( VendorDirectory::class, static fn( Container $services ): VendorDirectory => $services->get( Vendors::class ) );
 		$container->factory( RateLimiter::class, static fn( Container $services ): RateLimiter => new RateLimiter( $services->get( CoordinationPort::class ), $services->get( SettingsReader::class ), static fn(): int => $services->get( Clock::class )->now()->getTimestamp() ) );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );

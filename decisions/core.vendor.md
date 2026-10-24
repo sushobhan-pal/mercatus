@@ -217,6 +217,37 @@ Routes follow API-1 through the base REST controller and the route pipeline (IDN
   - **`/me` stays at 0 queries (PLAT-10):** the scale gate showed the vendor section costing 2 queries on every `/me`, for everyone. Each user's standing is now cached under a per-user revision that every change bumps. Warm it costs no queries; cold, 2.
   - **Integration tests:** the bootstrap registers the site kernel's savepoint runner while the kernel starts, because module hooks now build services that hold a transaction runner at boot. Doing it later let a real `COMMIT` leak rows between tests.
 
+- **VEN-19 The dashboard shell (increment 2).**
+  - **Settings endpoints:** `GET` and `PATCH /settings/{module}` belong to the kernel, which owns the settings registry (`SettingsRoutes`, `SettingsEditor`).
+    - A `PATCH` changes every value it names or none.
+    - Settings have no version column, so their ETag hashes the values the administrator sees (PLAT-9): no `If-Match` gets 428, a stale one 409.
+    - Events and the audit entry name the changed keys, never their values (SEC-7).
+  - **Managers endpoints:** `/managers` belongs to core.identity, behind the Application port `ManagerDirectory` (IDN-21). `POST /managers` takes a user ID or an email, because the screen knows only the email.
+  - **Drawing the settings form:** the `SettingsForm` contract (manifest field `settingsForm`) gives each module's settings translated labels, help and a widget, in the API layer (G-BND-2). The widgets beyond each type's default are a page picker, the managers' permission checklist and the question editor.
+  - **Menu:** Modules and Settings come from the kernel, Managers from core.identity, and Selling from core.vendor. `MenuItem` gains `actorTypes`, so only customers and vendor owners see Selling. An administrator who calls the registration endpoint anyway is refused by the API (VEN-12).
+  - **The page:**
+    - It's created on the first wp-admin load by someone who can publish pages, not in the activation request, because the module's settings only exist once its migrations have run.
+    - `template_include` runs at priority 1000, after themes and page builders.
+    - The document prints only the dashboard's own handles, through `WP_Scripts::do_items()`, without `wp_head()` or `wp_footer()`, so other plugins' scripts and output never appear.
+    - The page sends `nocache_headers()` and sets `DONOTCACHEPAGE`, because it carries a nonce.
+  - **The CSP in detail (VEN-10):**
+    - `script-src` is the site's origins plus this request's nonce, which `wp_script_attributes` and `wp_inline_script_attributes` add to every script tag.
+    - `style-src` allows `'unsafe-inline'`, because `@wordpress/components` injects its styles at runtime.
+    - Images may come from the site, `data:` and HTTPS; `connect-src` is the site only.
+    - The end-to-end specs fail on any CSP violation the browser reports.
+  - **Visitors:** visitors have no `/me`, so the registration form is printed with the page (ARCH-9): the questions in the visitor's language, the terms page, and whether WooCommerce generates passwords. API-2 has no read endpoint for the form, so other clients can't draw it yet. Adding one is a master change.
+  - **One bundle:** the screens are in the main bundle, not lazy-loaded chunks, because `wp_set_script_translations()` loads translations only for the registered file, so strings in chunks would stay untranslated (VEN-15). Later modules ship their own bundles and register their screens.
+  - **Multilingual (PLAT-11):**
+    - `Infrastructure\I18n\Multilingual` wraps WPML's public hooks and Polylang's public functions, and falls back to the original when neither is active.
+    - The administrator's question labels and choices register on `admin_init`, because Polylang needs them registered on every admin load.
+    - A choice keeps its original value and shows a translated label. Application snapshots keep the original labels.
+  - **WooCommerce 9.2:** `wc_set_customer_auth_cookie()` assumes a WooCommerce session, which REST requests don't start, so registration starts one first. The end-to-end run on WordPress 6.6 and WooCommerce 9.2 found this, and `VendorRegistrationTest` now covers it.
+  - **End to end (GW-6):**
+    - `bin/e2e.sh` serves a site built from the integration image on port 8889 (`compose.e2e.yaml`) and runs Playwright through `wp-scripts test-playwright`. CI's End to end job runs it on every pull request.
+    - Mercatus migrates on activation only once WooCommerce is loaded, so activating both in one WP-CLI command leaves its migrations pending, and the site shows the "Update database" notice. The script activates them one at a time.
+  - **JS tests:** Vitest in jsdom, set up as the wp-scripts migration guide describes (`vitest.config.mjs`, `tests/Js/`). React 18.3 is pinned to match WordPress 6.6.
+  - **Approval email:** it now links to the dashboard.
+
 ## 11. Open questions
 None. All seven were answered on 2026-10-24 and are recorded as VEN-11 to VEN-17.
 

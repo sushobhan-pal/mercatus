@@ -12,6 +12,7 @@ namespace Mercatus\Core\Vendor\Infrastructure\Email;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
 use Mercatus\Core\Shared\Events\DomainEvent;
 use Mercatus\Core\Vendor\Infrastructure\ApplicationStore;
+use Mercatus\Core\Vendor\Infrastructure\DashboardPage;
 use Mercatus\Core\Vendor\Infrastructure\VendorStore;
 
 /**
@@ -36,8 +37,9 @@ final class VendorEmailSubscriber implements EventSubscriber {
 	 *
 	 * @param ApplicationStore $applications Attempts.
 	 * @param VendorStore      $vendors      Vendors.
+	 * @param DashboardPage    $dashboard    The dashboard, linked from the emails.
 	 */
-	public function __construct( private ApplicationStore $applications, private VendorStore $vendors ) {}
+	public function __construct( private ApplicationStore $applications, private VendorStore $vendors, private DashboardPage $dashboard ) {}
 
 	public function subscribedEvents(): array {
 		return array_keys( self::EMAILS );
@@ -54,7 +56,7 @@ final class VendorEmailSubscriber implements EventSubscriber {
 	}
 
 	/**
-	 * What the email shows: the store name, and the reason for a rejection or suspension.
+	 * What the email shows: the store name, the reason for a rejection or suspension, and the dashboard's address.
 	 *
 	 * @param DomainEvent $event Event.
 	 * @return array<string, mixed>
@@ -68,6 +70,7 @@ final class VendorEmailSubscriber implements EventSubscriber {
 				'store_name'     => null === $application ? '' : $application->storeName,
 				'reason'         => $application?->reason,
 				'application_id' => $application_id,
+				'dashboard_url'  => $this->dashboard->url(),
 			);
 		}
 		$vendor_id   = $event->payload['vendor_id'] ?? null;
@@ -75,8 +78,9 @@ final class VendorEmailSubscriber implements EventSubscriber {
 		$application = null === $vendor ? null : $this->applications->byId( $vendor->applicationId );
 
 		return array(
-			'store_name' => null === $application ? '' : $application->storeName,
-			'reason'     => $vendor?->reason,
+			'store_name'    => null === $application ? '' : $application->storeName,
+			'reason'        => $vendor?->reason,
+			'dashboard_url' => $this->dashboard->url(),
 		);
 	}
 }

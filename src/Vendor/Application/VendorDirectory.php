@@ -90,4 +90,13 @@ interface VendorDirectory {
 	 * @return array{vendor: array{id: int, status: string}|null, application: array{id: int, attempt: int, status: string, reason: string|null}|null}
 	 */
 	public function standing( int $user_id ): array;
+
+	/**
+	 * The registration form in force, in the current language: the questions after the store name, the terms
+	 * page when one is set, and whether WooCommerce generates visitors' passwords. A choice's value is the
+	 * administrator's original text; its label is translated (VEN-15).
+	 *
+	 * @return array{questions: list<array{id: string, label: string, type: string, required: bool, choices: list<array{value: string, label: string}>}>, terms: array{id: int, title: string, url: string}|null, generate_password: bool}
+	 */
+	public function registrationForm(): array;
 }

@@ -24,7 +24,8 @@ use WP_REST_Response;
 
 /**
  * GET /features (public), GET /health, POST /system/cache/flush-group, GET /modules and POST
- * /modules/{id}/activate|deactivate (admin). Until `core.identity`, admin routes refuse everyone (KER-11).
+ * /modules/{id}/activate|deactivate (admin), and the settings endpoints (VEN-16). Until `core.identity`, admin
+ * routes refuse everyone (KER-11).
  */
 final class KernelRoutes implements RouteProvider {
 
@@ -33,12 +34,14 @@ final class KernelRoutes implements RouteProvider {
 	/**
 	 * Creates the routes.
 	 *
-	 * @param Kernel     $kernel Booted kernel.
-	 * @param AccessGate $gate   Access checks, also used to show versions to administrators.
+	 * @param Kernel         $kernel   Booted kernel.
+	 * @param AccessGate     $gate     Access checks, also used to show versions to administrators.
+	 * @param SettingsRoutes $settings The settings endpoints.
 	 */
-	public function __construct( private Kernel $kernel, private AccessGate $gate ) {}
+	public function __construct( private Kernel $kernel, private AccessGate $gate, private SettingsRoutes $settings ) {}
 
 	public function routes( RouteRegistrar $routes ): void {
+		$this->settings->routes( $routes );
 		$routes->add( '/features', array( $this->endpoint( 'GET', 'features', Access::Open, 'feature', 'Active modules and their features' ) ), fn(): array => $this->kernel->features()->schema() );
 		$routes->add( '/health', array( $this->endpoint( 'GET', 'health', Access::Admin, 'health', 'Health report', permission: KernelPermissions::HEALTH_VIEW ) ), static fn(): array => self::healthSchema() );
 		$routes->add(

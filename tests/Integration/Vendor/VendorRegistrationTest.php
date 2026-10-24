@@ -50,6 +50,27 @@ final class VendorRegistrationTest extends WP_UnitTestCase {
 		$this->assertNotEmpty( $response->get_headers()['X-WP-Nonce'] ?? '' );
 	}
 
+	public function testAVisitorIsSignedInWithoutAWooCommerceSession(): void {
+		$property = new \ReflectionProperty( WC(), 'session' );
+		$session  = $property->getValue( WC() );
+		$property->setValue( WC(), null ); // As in a real REST request, where WooCommerce starts no session.
+		try {
+			$this->data(
+				$this->registerVendor(
+					array(
+						'email'    => 'rest.vendor@example.org',
+						'password' => 'a strong passphrase 42',
+					)
+				),
+				201
+			);
+
+			$this->assertNotNull( $property->getValue( WC() ) );
+		} finally {
+			$property->setValue( WC(), $session );
+		}
+	}
+
 	public function testATakenEmailAsksThePersonToSignIn(): void {
 		$existing = get_userdata( $this->userAs( 'customer' ) );
 		$this->assertInstanceOf( WP_User::class, $existing );

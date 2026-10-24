@@ -1,5 +1,5 @@
-# CI (TEST-4, GW-6). Pull requests run static checks, fast tests and two integration legs; main and the
-# nightly run add the full database x cache matrix. The nightly run is skipped when main hasn't changed since
+# CI (TEST-4, GW-6). Pull requests run static checks, fast tests, two integration legs and the end-to-end
+# specs; main and the nightly run add the full database x cache matrix. The nightly run is skipped when main hasn't changed since
 # the last one (KER-17). The next-PHP leg never blocks. The scale suite has its own workflow, scale.yml.
 name: CI
 
@@ -102,6 +102,28 @@ jobs:
       - run: npm run lint:openapi
       - run: npm run test:unit
       - run: npm run build
+
+  e2e:
+    name: End to end
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: bin/e2e.sh
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-artifacts
+          path: artifacts/test-results
+          retention-days: 7
 
   integration:
     name: Integration (${{ matrix.name }})

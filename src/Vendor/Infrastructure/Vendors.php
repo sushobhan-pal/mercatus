@@ -15,6 +15,7 @@ use Mercatus\Core\Contracts\Identity\ActorType;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Contracts\Identity\IdentityRevisions;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
+use Mercatus\Core\Infrastructure\I18n\Multilingual;
 use Mercatus\Core\Shared\Audit\AuditLog;
 use Mercatus\Core\Shared\Clock\Clock;
 use Mercatus\Core\Shared\Errors\DomainError;
@@ -57,6 +58,7 @@ final class Vendors implements VendorDirectory {
 	 * @param SettingsReader    $settings     Settings.
 	 * @param Clock             $clock        Current time.
 	 * @param CachePort         $cache        Each user's standing, for /me.
+	 * @param Multilingual      $languages    Translations of the administrator's questions.
 	 */
 	public function __construct(
 		private ApplicationStore $applications,
@@ -70,6 +72,7 @@ final class Vendors implements VendorDirectory {
 		private SettingsReader $settings,
 		private Clock $clock,
 		private CachePort $cache,
+		private Multilingual $languages,
 	) {}
 
 	public function register( array $input ): array {
@@ -120,7 +123,11 @@ final class Vendors implements VendorDirectory {
 			$this->approveAs( $this->find( $id ), 0 );
 		}
 		if ( $created ) {
-			// Signed in the way WooCommerce's own registration does, so the dashboard can continue.
+			// Signed in the way WooCommerce's own registration does, so the dashboard can continue. REST requests
+			// start no WooCommerce session, and older WooCommerce versions assume one here.
+			if ( null === WC()->session ) {
+				WC()->initialize_session();
+			}
 			wc_set_customer_auth_cookie( $user_id );
 			wp_set_current_user( $user_id );
 		}
@@ -419,6 +426,61 @@ final class Vendors implements VendorDirectory {
 		}
 
 		return (int) $user_id;
+	}
+
+	public function registrationForm(): array {
+		$questions = array();
+		foreach ( $this->form()->questions as $question ) {
+			$custom      = ! in_array( $question->id, ApplicationForm::RESERVED, true );
+			$questions[] = array(
+				'id'       => $question->id,
+				'label'    => $custom ? $this->languages->translate( self::stringName( $question->id ), $question->label ) : $question->label,
+				'type'     => $question->type,
+				'required' => $question->required,
+				'choices'  => array_map(
+					fn( string $choice ): array => array(
+						'value' => $choice,
+						'label' => $this->languages->translate( self::stringName( $question->id, $choice ), $choice ),
+					),
+					$question->choices
+				),
+			);
+		}
+		$terms = $this->settings->int( VendorSettings::TERMS_PAGE );
+		$link  = $terms > 0 ? get_permalink( $this->languages->inCurrentLanguage( $terms ) ) : false;
+
+		return array(
+			'questions'         => $questions,
+			'terms'             => false === $link ? null : array(
+				'id'    => $terms,
+				'title' => get_the_title( $this->languages->inCurrentLanguage( $terms ) ),
+				'url'   => $link,
+			),
+			'generate_password' => 'yes' === get_option( 'woocommerce_registration_generate_password' ),
+		);
+	}
+
+	/**
+	 * Registers the administrator's questions and choices with the multilingual plugin, so they can be
+	 * translated (VEN-15).
+	 */
+	public function registerStrings(): void {
+		foreach ( ApplicationForm::fromJson( $this->settings->string( VendorSettings::APPLICATION_FIELDS ) )->questions as $question ) {
+			$this->languages->register( self::stringName( $question->id ), $question->label );
+			foreach ( $question->choices as $choice ) {
+				$this->languages->register( self::stringName( $question->id, $choice ), $choice );
+			}
+		}
+	}
+
+	/**
+	 * The translatable name of a question's label or of one of its choices.
+	 *
+	 * @param string      $question_id Question ID.
+	 * @param string|null $choice      Choice, or null for the label.
+	 */
+	private static function stringName( string $question_id, ?string $choice = null ): string {
+		return 'core.vendor.question.' . $question_id . ( null === $choice ? '' : '.choice.' . substr( md5( $choice ), 0, 8 ) );
 	}
 
 	/**

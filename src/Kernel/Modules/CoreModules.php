@@ -13,6 +13,7 @@ use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Identity\Api\IdentityMenu;
 use Mercatus\Core\Identity\Api\IdentityPermissions;
 use Mercatus\Core\Identity\Api\IdentityRoutes;
+use Mercatus\Core\Identity\Api\IdentitySettingsForm;
 use Mercatus\Core\Identity\Application\IdentitySettings;
 use Mercatus\Core\Identity\Application\PermissionsHealthCheck;
 use Mercatus\Core\Identity\Application\RateLimitingHealthCheck;
@@ -20,13 +21,16 @@ use Mercatus\Core\Identity\Infrastructure\IdentityHooks;
 use Mercatus\Core\Identity\Infrastructure\IdentityMigrations;
 use Mercatus\Core\Identity\Infrastructure\WordPressClaimSource;
 use Mercatus\Core\Kernel\Http\KernelRoutes;
+use Mercatus\Core\Kernel\KernelMenu;
 use Mercatus\Core\Kernel\KernelMigrations;
 use Mercatus\Core\Kernel\KernelPermissions;
 use Mercatus\Core\Kernel\KernelSettings;
+use Mercatus\Core\Kernel\KernelSettingsForm;
 use Mercatus\Core\Vendor\Api\VendorMenu;
 use Mercatus\Core\Vendor\Api\VendorMeSection;
 use Mercatus\Core\Vendor\Api\VendorPermissions;
 use Mercatus\Core\Vendor\Api\VendorRoutes;
+use Mercatus\Core\Vendor\Api\VendorSettingsForm;
 use Mercatus\Core\Vendor\Application\VendorSettings;
 use Mercatus\Core\Vendor\Infrastructure\Email\VendorEmailSubscriber;
 use Mercatus\Core\Vendor\Infrastructure\VendorClaimSource;
@@ -46,7 +50,7 @@ final class CoreModules {
 	 */
 	public static function all( string $version ): array {
 		return array(
-			new RegisteredModule( new ModuleManifest( id: 'core.kernel', version: $version, routes: KernelRoutes::class, migrations: KernelMigrations::class, permissions: KernelPermissions::class, settings: KernelSettings::class ), false, true ),
+			new RegisteredModule( new ModuleManifest( id: 'core.kernel', version: $version, routes: KernelRoutes::class, migrations: KernelMigrations::class, permissions: KernelPermissions::class, dashboardMenu: KernelMenu::class, settings: KernelSettings::class, settingsForm: KernelSettingsForm::class ), false, true ),
 			new RegisteredModule(
 				new ModuleManifest(
 					id: 'core.identity',
@@ -59,6 +63,7 @@ final class CoreModules {
 					settings: IdentitySettings::class,
 					hooks: IdentityHooks::class,
 					claimSources: array( WordPressClaimSource::class ),
+					settingsForm: IdentitySettingsForm::class,
 				),
 				false,
 				true
@@ -76,6 +81,7 @@ final class CoreModules {
 					claimSources: array( VendorClaimSource::class ),
 					meSections: array( VendorMeSection::class ),
 					eventSubscribers: array( VendorEmailSubscriber::class ),
+					settingsForm: VendorSettingsForm::class,
 				),
 				false,
 				true

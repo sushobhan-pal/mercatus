@@ -22,6 +22,7 @@
 .env
 .gitignore
 .nvmrc
+compose.e2e.yaml
 compose.yaml
 composer.json
 composer.lock
@@ -34,4 +35,6 @@ phpstan.neon.dist
 phpunit-integration.xml.dist
 phpunit-scale.xml.dist
 phpunit.xml.dist
+playwright.config.js
 redocly.yaml
+vitest.config.mjs

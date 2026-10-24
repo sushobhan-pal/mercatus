@@ -9,12 +9,14 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Tests\Integration\Vendor;
 
+use Mercatus\Core\Vendor\Application\VendorSettings;
 use WP_UnitTestCase;
 use WP_User;
 
 /**
  * The administrator hears about each application; the applicant hears the decision, with the reason when
- * rejected; the vendor hears about a suspension, with the reason, and about being reinstated.
+ * rejected and a link to the dashboard when approved; the vendor hears about a suspension, with the reason,
+ * and about being reinstated.
  */
 final class ApplicationEmailsTest extends WP_UnitTestCase {
 
@@ -23,6 +25,11 @@ final class ApplicationEmailsTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		reset_phpmailer_instance();
+	}
+
+	public function tear_down(): void {
+		self::kernel()->settings()->set( VendorSettings::DASHBOARD_PAGE, 0 );
+		parent::tear_down();
 	}
 
 	public function testTheAdministratorAndTheApplicantHearAboutEachDecision(): void {
@@ -39,6 +46,9 @@ final class ApplicationEmailsTest extends WP_UnitTestCase {
 	}
 
 	public function testTheVendorHearsAboutApprovalSuspensionAndReinstatement(): void {
+		$dashboard = self::factory()->post->create( array( 'post_type' => 'page' ) );
+		$this->assertIsInt( $dashboard );
+		self::kernel()->settings()->set( VendorSettings::DASHBOARD_PAGE, $dashboard );
 		$vendor = $this->customer();
 		$id     = (int) $this->data( $this->registerVendor( array( 'store_name' => 'Rare Maps' ) ), 201 )['application']['id'];
 		$this->data( $this->asAdministrator( 'POST', '/vendor-applications/' . $id . '/approve' ), 200 );
@@ -49,6 +59,7 @@ final class ApplicationEmailsTest extends WP_UnitTestCase {
 		$to_vendor = array_values( array_filter( $this->sent(), static fn( array $mail ): bool => $mail['to'] === $vendor->user_email ) );
 		$this->assertCount( 3, $to_vendor, 'Approved, suspended and reinstated, once each.' );
 		$this->assertStringContainsString( 'approved', $to_vendor[0]['subject'] );
+		$this->assertStringContainsString( esc_url( (string) get_permalink( $dashboard ) ), $to_vendor[0]['body'], 'The approval links to the dashboard.' );
 		$this->assertStringContainsString( 'Late shipments', $to_vendor[1]['body'] );
 		$this->assertStringContainsString( 'back', $to_vendor[2]['subject'] );
 	}

@@ -13,6 +13,7 @@ use InvalidArgumentException;
 use LogicException;
 use Mercatus\Core\Contracts\Settings\SettingDefinition;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
+use Mercatus\Core\Contracts\Settings\SettingsWriter;
 use Mercatus\Core\Contracts\Settings\SettingType;
 use Mercatus\Core\Shared\Errors\DomainError;
 
@@ -20,7 +21,7 @@ use Mercatus\Core\Shared\Errors\DomainError;
  * Holds the active modules' settings. Reads return the stored value, or the default when nothing is stored or
  * the stored value no longer fits (for example after its definition changed). Writes are validated first.
  */
-final class SettingsRegistry implements SettingsReader {
+final class SettingsRegistry implements SettingsReader, SettingsWriter {
 
 	/**
 	 * Definitions by key.
@@ -153,6 +154,57 @@ final class SettingsRegistry implements SettingsReader {
 
 		$this->store->save( $module_id, $values );
 		$this->values[ $module_id ] = $values;
+	}
+
+	/**
+	 * Changes several of one module's settings at once: all of them or, when one is invalid, none.
+	 *
+	 * @param string               $module_id Module ID.
+	 * @param array<string, mixed> $changes   New values by key.
+	 * @return list<string> The keys whose value changed.
+	 * @throws DomainError When a key isn't one of the module's settings or a value doesn't fit it.
+	 */
+	public function update( string $module_id, array $changes ): array {
+		$values  = $this->stored( $module_id );
+		$changed = array();
+		foreach ( $changes as $key => $value ) {
+			$definition = $this->definition( (string) $key );
+			if ( $definition->moduleId() !== $module_id ) {
+				throw DomainError::of( 'mercatus_setting_unknown', array( 'key' => $key ) );
+			}
+			try {
+				$normalized = $definition->normalize( $value );
+			} catch ( InvalidArgumentException ) {
+				throw DomainError::of( 'mercatus_setting_invalid', array( 'key' => $key ) );
+			}
+			if ( $this->get( (string) $key ) !== $normalized ) {
+				$changed[] = (string) $key;
+			}
+			$values[ $key ] = $normalized;
+		}
+		if ( array() !== $changed ) {
+			$this->store->save( $module_id, $values );
+			$this->values[ $module_id ] = $values;
+		}
+
+		return $changed;
+	}
+
+	/**
+	 * A module's settings with their current values.
+	 *
+	 * @param string $module_id Module ID.
+	 * @return array<string, bool|int|string> Values by key, in registration order.
+	 */
+	public function module( string $module_id ): array {
+		$values = array();
+		foreach ( $this->definitions as $key => $definition ) {
+			if ( $definition->moduleId() === $module_id ) {
+				$values[ $key ] = $this->get( $key );
+			}
+		}
+
+		return $values;
 	}
 
 	/**

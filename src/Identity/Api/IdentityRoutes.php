@@ -38,11 +38,13 @@ final class IdentityRoutes implements RouteProvider {
 	 * @param PermissionCatalog     $permissions Permissions.
 	 * @param ApiClientRoutes       $clients     The API-client endpoints.
 	 * @param ModuleExtensions      $modules     Other modules' `/me` sections.
+	 * @param ManagerRoutes         $managers    The managers endpoints.
 	 */
-	public function __construct( private CurrentActor $actors, private FeatureSource $features, private DashboardMenuCompiler $menu, private PermissionCatalog $permissions, private ApiClientRoutes $clients, private ModuleExtensions $modules ) {}
+	public function __construct( private CurrentActor $actors, private FeatureSource $features, private DashboardMenuCompiler $menu, private PermissionCatalog $permissions, private ApiClientRoutes $clients, private ModuleExtensions $modules, private ManagerRoutes $managers ) {}
 
 	public function routes( RouteRegistrar $routes ): void {
 		$this->clients->routes( $routes );
+		$this->managers->routes( $routes );
 		$routes->add(
 			'/me',
 			array(

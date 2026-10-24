@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Identity\Infrastructure;
 
 use Mercatus\Core\Contracts\Identity\IdentityRevisions;
+use Mercatus\Core\Identity\Application\ManagerDirectory;
 use Mercatus\Core\Shared\Audit\AuditLog;
 use Mercatus\Core\Shared\Errors\DomainError;
 use Mercatus\Core\Shared\Events\EventPublisher;
@@ -19,7 +20,7 @@ use Mercatus\Core\Shared\Persistence\TransactionRunner;
  * The appointment flag, an event and an audit entry in one transaction, then a fresh identity. The flag is
  * user meta, not a WordPress role, so it grants no WordPress or WooCommerce capability.
  */
-final class ManagerAppointments {
+final class ManagerAppointments implements ManagerDirectory {
 
 	/**
 	 * Creates the service.
@@ -31,20 +32,12 @@ final class ManagerAppointments {
 	 */
 	public function __construct( private TransactionRunner $transactions, private EventPublisher $events, private AuditLog $audit, private IdentityRevisions $revisions ) {}
 
-	/**
-	 * Makes a user a marketplace manager. Repeating it changes nothing.
-	 *
-	 * @param int $user_id WordPress user.
-	 */
-	public function appoint( int $user_id ): void {
+	public function appoint( int $user_id ): array {
 		$this->change( $user_id, true );
+
+		return self::manager( $user_id );
 	}
 
-	/**
-	 * Ends a user's appointment. Repeating it changes nothing.
-	 *
-	 * @param int $user_id WordPress user.
-	 */
 	public function remove( int $user_id ): void {
 		$this->change( $user_id, false );
 	}
@@ -58,11 +51,6 @@ final class ManagerAppointments {
 		return '1' === get_user_meta( $user_id, WordPressClaimSource::MANAGER_META, true );
 	}
 
-	/**
-	 * The appointed managers' user IDs.
-	 *
-	 * @return list<int>
-	 */
 	public function managers(): array {
 		$ids = get_users(
 			array(
@@ -72,8 +60,26 @@ final class ManagerAppointments {
 				'orderby'    => 'ID',
 			)
 		);
+		$ids = array_values( array_map( 'intval', $ids ) );
+		cache_users( $ids );
 
-		return array_values( array_map( 'intval', $ids ) );
+		return array_map( array( self::class, 'manager' ), $ids );
+	}
+
+	/**
+	 * A manager as the API shows them.
+	 *
+	 * @param int $user_id WordPress user.
+	 * @return array{user_id: int, display_name: string, email: string}
+	 */
+	private static function manager( int $user_id ): array {
+		$user = get_userdata( $user_id );
+
+		return array(
+			'user_id'      => $user_id,
+			'display_name' => false === $user ? '' : $user->display_name,
+			'email'        => false === $user ? '' : $user->user_email,
+		);
 	}
 
 	/**
