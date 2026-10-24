@@ -1,6 +1,6 @@
 # Mercatus — Master Architecture, Decisions & Testing Constitution
 
-**Version:** 2.8, frozen 2026-10-24.
+**Version:** 2.9, frozen 2026-10-24.
 **Scope:** the single source of truth for **Mercatus** (free) and **Mercatus Pro**: product decisions, architecture, data model, security, testing and roadmap.
 **Change control:** this document is frozen. A change needs the product owner's approval, is made directly in the section it belongs to, and raises the version. The previous version is archived in `archive/`.
 
@@ -136,6 +136,13 @@ A reviewer, human or AI, **MUST REJECT** a pull request, commit or generated cha
 | `GET /mercatus/v1/catalog/categories/{id}/schema` | $0$ | $\le 2$ | $< 10\text{ ms}$ / $< 30\text{ ms}$ |
 | Cart line offer + location + tax rate resolution | $\le 2$ | $\le 5$ | $< 35\text{ ms}$ / $< 80\text{ ms}$ |
 | Stage 1 allocation (3 vendors, 6 lines) | $\le 8$ writes | $\le 12$ ops | $< 120\text{ ms}$ (excluding gateway HTTP) |
+
+- **PLAT-11 Multilingual.** Mercatus works with multilingual plugins such as WPML and Polylang, through their documented APIs and never as a hard dependency.
+  - Pages Mercatus creates, such as the marketplace dashboard, resolve to their translations.
+  - Strings an administrator enters (application questions, labels, choices) register with the plugin's string translation and are shown translated.
+  - Emails and messages to customers and vendors use the recipient's language.
+  - Vendor content (store names, descriptions, products) follows the multilingual plugin's own model for posts and WooCommerce (WooCommerce Multilingual).
+  - Each module's decision file says how its content is translated.
 
 ---
 
@@ -402,10 +409,11 @@ return new ModuleManifest(
 
 | Area | Endpoints |
 |---|---|
-| **Bootstrap & system** | `GET /me` (actor, store summary, active features), `GET /features`, `GET /health`, `POST /system/cache/flush-group` (PLAT-5), `GET /modules`, `POST /modules/{id}/activate`, `POST /modules/{id}/deactivate` (optional modules only, ARCH-6) |
+| **Bootstrap & system** | `GET /me` (actor, store summary, active features), `GET /features`, `GET /health`, `POST /system/cache/flush-group` (PLAT-5), `GET /modules`, `POST /modules/{id}/activate`, `POST /modules/{id}/deactivate` (optional modules only, ARCH-6), `GET /settings/{module}`, `PATCH /settings/{module}`, `GET /managers`, `POST /managers`, `POST /managers/{user_id}/remove` (admin) |
 | **API clients** | `GET /api-clients`, `POST /api-clients`, `PATCH /api-clients/{id}`, `POST /api-clients/{id}/revoke`, `POST /api-clients/{id}/passwords` (admin); `GET /me/app-passwords`, `POST /me/app-passwords/{uuid}/revoke` (SEC-1) |
-| **Vendor applications** | `POST /vendor-applications`, `GET /vendor-applications/{id}`, `POST /vendor-applications/{id}/approve`, `POST /vendor-applications/{id}/reject` |
-| **Stores** | `GET /stores`, `GET /stores/{slug}`, `GET /me/store`, `PATCH /me/store`, `POST /stores/{id}/suspend` |
+| **Vendor applications** | `POST /vendor-registrations` (a visitor or a customer; creates the visitor's WooCommerce account), `GET /vendor-applications` (review queue), `GET /vendor-applications/{id}` (with the applicant's earlier attempts), `POST /vendor-applications/{id}/approve`, `POST /vendor-applications/{id}/reject` |
+| **Vendors** | `GET /vendors`, `POST /vendors/{id}/suspend`, `POST /vendors/{id}/reinstate` (admin) |
+| **Stores** | `GET /stores`, `GET /stores/{slug}`, `GET /me/store`, `PATCH /me/store` |
 | **Catalog** | `GET /catalog/categories`, `GET /catalog/categories/{id}/schema`, `GET /catalog/attributes/{id}/terms`, `GET /catalog/offers`, `GET /catalog/products/{id}/offers` |
 | **Vendor products & offers** | `GET /me/products`, `POST /me/products`, `GET /me/products/{id}`, `PATCH /me/products/{id}`, `DELETE /me/products/{id}`, `PATCH /me/offers/{id}/inventory` |
 | **Media** | `POST /me/media`, `GET /me/media`, `DELETE /me/media/{id}` |
@@ -414,7 +422,7 @@ return new ModuleManifest(
 | **Earnings & withdrawals** | `GET /me/earnings`, `GET /me/ledger/entries`, `GET /me/withdrawals`, `POST /me/withdrawals`, `POST /withdrawals/{id}/approve`, `POST /withdrawals/{id}/reject`, `POST /withdrawals/{id}/mark-paid` (admin) |
 | **Reviews** | `GET /stores/{slug}/reviews`, `POST /stores/{slug}/reviews`, `POST /reviews/{id}/reply`, `POST /reviews/{id}/moderate` |
 
-  There are no Mercatus cart or checkout endpoints (ARCH-12). Commission, completion, earnings-release, rate-limit and tax settings are exposed through the typed settings registry. Pro modules register their own routes through the registrar.
+  There are no Mercatus cart or checkout endpoints (ARCH-12). Commission, completion, earnings-release, rate-limit and tax settings are exposed through the typed settings registry and `/settings/{module}`. Pro modules register their own routes through the registrar.
 - **API-3 Outbox.** Commands write domain state, `wp_mercatus_audit_log` and `wp_mercatus_events_outbox` in one transaction over Mercatus tables, then bump cache revisions after commit. Money changes never run in outbox handlers (ARCH-11). Critical handlers run right after commit, with the poller as the retry net, and every committed event also reaches WordPress through the single `do_action()` bridge (ARCH-8).
   - **No one-row-per-event scheduling:** a recurring worker (Action Scheduler or the `wp mercatus outbox:work` daemon) claims events in batches of 200 with a lease, which works on every supported database and recovers crashed workers:
     ```sql
@@ -450,7 +458,8 @@ return new ModuleManifest(
 | Table | Responsibility | Keys & required indexes |
 |---|---|---|
 | `schema_versions` | Applied Core and Pro migrations, checksums, execution locks | PK `id`; UNIQUE `(module_id, version)` |
-| `vendors` | Vendor identity and lifecycle; one WP user per vendor | PK `id`; UNIQUE `user_id`; INDEX `(status, created_at)` |
+| `vendors` | Approved vendors and their lifecycle (active, suspended, closed); one WP user per vendor | PK `id`; UNIQUE `user_id`; INDEX `(status, created_at)` |
+| `vendor_applications` | One row per application attempt: a snapshot of the answers with their questions, the decision and its reason, so a resubmission is reviewed against every earlier attempt | PK `id`; UNIQUE `(user_id, attempt)`; INDEX `(status, created_at)` |
 | `stores` | Store profile, normalized slug, visibility, owner vendor | PK `id`; UNIQUE `vendor_id`; UNIQUE `slug`; INDEX `(visibility, status)` |
 | `catalog_products` | Catalog product, product type (`simple`, `variable`, `booking`, `subscription`, `auction`), governance state | PK `id`; UNIQUE `woo_product_id`; INDEX `(scope, status, product_type)`; INDEX `(primary_category_id, status)` |
 | `categories` | Category index: materialized path, depth, leaf flag (CAT-3) | PK `id`; UNIQUE `category_id`; INDEX `(parent_id, sort_order)`; INDEX `(path(64))` |
