@@ -26,29 +26,29 @@ Local IDs use the code `IDN`.
   - **`core.vendor`:** the `vendors` table and resolving `vendor_owner` from it, through this module's claim seam (IDN-3); the dashboard shell, and with it the screens for API clients and manager permissions.
   - **`core.store`:** the store summary in `/me`, through this module's section seam (IDN-12).
   - **Each module:** its own resource policies (`StorePolicy`, `WithdrawalPolicy` and so on) and its named permissions.
-  - **Pro:** `vendor_staff` resolution and staff scope (Staff & Groups, OQ-2), `delivery_agent` (Delivery), `affiliate` (Affiliate), and module entitlement for Pro modules (`pro.licensing`).
+  - **Pro:** `vendor_staff` resolution and staff scope (Staff & Groups, IDN-16), narrowing a manager's scope to vendor groups or membership plans (IDN-15), `delivery_agent` (Delivery), `affiliate` (Affiliate), and module entitlement for Pro modules (`pro.licensing`).
   - **Later modules (SEC-1):** OAuth2/PKCE. Webhook signature verification is built with the first webhook (Pro payment integrations).
   - **Not in v1 (PLAT-6):** rate limiting without a persistent object cache.
 
 ## 2. Data
 - **Tables (DATA-2), created by this module's migrations:**
-  - **`api_clients`:** one row per registered client: an integration, or an app that users sign in to (OQ-3). Columns: `client_key_hash` (SHA-256 of the client's application ID), `name`, owning `actor_type` and `actor_id`, `scopes` (JSON), `ip_allow_list` (JSON), `password_lifetime_days`, `status` (`active` or `revoked`), `last_used_at`, `created_by`, `created_at`, `updated_at` and `version`. Keys as DATA-2.
+  - **`api_clients`:** one row per registered client: an integration, or an app that users sign in to (IDN-17). Columns: `client_key_hash` (SHA-256 of the client's application ID), `name`, owning `actor_type` and `actor_id`, `scopes` (JSON), `ip_allow_list` (JSON), `password_lifetime_days`, `status` (`active` or `revoked`), `last_used_at`, `created_by`, `created_at`, `updated_at` and `version`. Keys as DATA-2.
   - **`idempotency`:** `actor_fingerprint`, `route`, `idempotency_key`, `request_hash` (SHA-256), `status` (`processing` or `completed`), `response_status`, `response_body` (JSON), `created_at`, `expires_at` and `version`. Keys as DATA-2.
 - **No table for identities.** WordPress users, `vendors` (`core.vendor`) and Pro's `staff_assignments` are the sources. The cache holds the resolved identity (IDN-2).
-- **User meta:** `mercatus_marketplace_manager`, the appointment flag (OQ-1). It's small and loads with the user.
+- **User meta:** `mercatus_marketplace_manager`, the appointment flag (IDN-15). It's small and loads with the user.
 - **Seeder slice:** none. Users arrive with `core.vendor`'s step and later ones.
 
 ## 3. Settings
 Changed by an administrator only:
-- `core.identity.manager_permissions`: the named permissions every marketplace manager holds (OQ-1). Default: none.
+- `core.identity.manager_permissions`: the named permissions every marketplace manager holds (IDN-15). Default: none.
 - `core.identity.idempotency_retention_hours`: how long completed idempotency rows are kept. Default 24 (IDN-9).
-- Rate limits, per minute (OQ-5): `core.identity.rate_limit_visitor_reads` 120, `…_visitor_writes` 20, `…_user_reads` 600, `…_user_writes` 120, `…_client_reads` 1200, `…_client_writes` 300.
+- Rate limits, per minute (IDN-19): `core.identity.rate_limit_visitor_reads` 120, `…_visitor_writes` 20, `…_user_reads` 600, `…_user_writes` 120, `…_client_reads` 1200, `…_client_writes` 300.
 - `core.identity.trusted_proxy_header`: the header carrying the visitor's IP address behind a proxy or CDN, for example `X-Forwarded-For`. Default: empty, so the connection's address is used (IDN-10).
 
 ## 4. API
 Routes go through the kernel's registrar with the route metadata (Groundwork §4), which gains `permission`, `idempotency` and `rate_limit` (IDN-4, IDN-9, IDN-10).
 - `GET /me`: `authenticated`. Returns the actor (type, user ID, display name, store ID if any), its permissions, the feature manifest (with module versions for administrators), the compiled dashboard menu, and sections that other modules add (IDN-12). Sent with `Cache-Control: private, no-cache` and an ETag, so repeat loads get a 304.
-- **API clients (OQ-4):** if the recommendation is accepted, master v2.8 adds these to API-2:
+- **API clients (IDN-18):** master v2.8 adds these to API-2:
   - `GET /api-clients`, `POST /api-clients`, `PATCH /api-clients/{id}` (`If-Match`) and `POST /api-clients/{id}/revoke`: `admin` with the `identity.api_clients.manage` permission.
   - `POST /api-clients/{id}/passwords`: creates an integration's application password and returns it once.
   - `GET /me/app-passwords` and `POST /me/app-passwords/{uuid}/revoke`: `authenticated`. Vendors never enter wp-admin (ARCH-13), so this is where they see and revoke their app sign-ins.
@@ -59,7 +59,7 @@ Routes go through the kernel's registrar with the route metadata (Groundwork §4
 - **Events emitted:**
   - `identity.api_client.registered`, `identity.api_client.updated` and `identity.api_client.revoked`;
   - `identity.api_client.password_created` (never the password);
-  - `identity.manager.appointed` and `identity.manager.removed` (OQ-1).
+  - `identity.manager.appointed`, `identity.manager.removed` and `identity.manager.permissions_changed` (IDN-15).
 - **Audit entries:** each event above. Refused requests aren't audited, so a flood can't turn into audit-log writes.
 - **Events consumed:** none.
 - **WordPress hooks used:**
@@ -76,7 +76,8 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
 - **`/me` sections (ARCH-8 point 5):** `core.store` adds the store summary.
 - **Resource policies:** one interface for every module's policy (SEC-2 step 5).
 - **Module entitlement (SEC-2 step 4):** Core treats an active module as entitled; `pro.licensing` replaces that check for Pro modules.
-- **Per-manager permissions (OQ-1):** the shared set can gain per-user overrides later without changing callers.
+- **Manager scope (IDN-15):** Pro narrows a manager's scope from all vendors to vendor groups or membership plans, through a claim source.
+- **Per-manager permissions (IDN-15):** the shared set can gain per-user overrides later, when a real need appears, without changing callers.
 - **Authentication sources:** an OAuth2 module (SEC-1) adds a source; the pipeline after authentication doesn't change.
 
 ## 8. Tests
@@ -88,6 +89,7 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
 - **Added by the threat model:** `SortAndFilterAllowListTest` (TM-35). Sort, filter and cursor parameters accept only allow-listed columns and typed values.
 - **From the kernel (KER-11):** `HealthEndpointAuthTest` and `CacheFlushAuthorizationTest` gain the cases where an administrator, and a manager holding the permission, is allowed. `FeaturesEndpointContractTest` gains the case where an administrator sees module versions.
 - **Generated matrix (TEST-2):** `PolicyMatrixDataProvider` gains `marketplace_manager` with and without the route's permission, `integration_client` inside and outside its scopes, and `vendor_staff` once a claim source provides it.
+- **Manager scope:** `PolicyEngineMatrixTest` proves, with a fixture claim source, that a manager whose scope excludes a vendor gets 404 for that vendor's resources (IDN-15).
 - **Extra:** `MeEndpointContractTest` checks `/me` against its schema. Unit tests cover the error envelope and the cursor codec.
 - **Threat model:**
 
@@ -116,7 +118,7 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
 
 ## 10. Decisions
 - **IDN-1 One identity per request.**
-  - `ActorIdentity` is immutable. It holds the SEC-1 type, the user ID, the store (tenant) ID if any, the named permissions, the API client if any, and the identity revision it was resolved at.
+  - `ActorIdentity` is immutable. It holds the SEC-1 type, the user ID, the store (tenant) ID if any, the named permissions, a manager's vendor scope (IDN-15), the API client if any, and the identity revision it was resolved at.
   - The type is the highest that applies: `administrator`, then `marketplace_manager`, `vendor_owner`, `vendor_staff`, `delivery_agent`, `affiliate`, `customer`.
   - Store membership and permissions are kept apart from the type, so an administrator who also owns a store can still use the store's routes.
   - A user belongs to at most one store in v1.
@@ -128,7 +130,7 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
     - by a role change or user deletion in WordPress (§5);
     - by a manager appointment or removal.
   - A change to the shared manager permissions bumps one global identity revision.
-- **IDN-3 Claim sources.** A new contract that modules implement to say who a user is to them, for example "owner of store 12". The resolver combines the claims under IDN-1. Until `core.vendor` lands, no source exists, so everyone signed in is a `customer`, an `administrator` or a `marketplace_manager`. Tests use fixture sources.
+- **IDN-3 Claim sources.** A new contract that modules implement to say who a user is to them, for example "owner of store 12". The resolver combines the claims under IDN-1. Pro's sources also narrow a manager's scope (IDN-15). Until `core.vendor` lands, no source exists, so everyone signed in is a `customer`, an `administrator` or a `marketplace_manager`. Tests use fixture sources.
 - **IDN-4 Access levels and named permissions.**
   - Route metadata keeps `access` and gains an optional `permission`: a named permission that some module declares in its manifest's `permissions` class. The registrar refuses unknown permission names.
   - `admin`: administrators always; marketplace managers when they hold the route's permission. An `admin` route without a permission is administrators only.
@@ -160,7 +162,7 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
   - A replay returns the stored response with `Idempotent-Replayed: true`. A key still processing gets 409 `mercatus_idempotency_in_progress`; a different payload gets 422 `mercatus_idempotency_mismatch`.
   - A daily Action Scheduler action deletes expired rows in batches.
 - **IDN-10 Rate limiting.**
-  - The limits, buckets and defaults follow OQ-5. Counters are `CoordinationPort` increments (PLAT-6).
+  - The limits, buckets and defaults are IDN-19's. Counters are `CoordinationPort` increments (PLAT-6).
   - Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; a refusal is 429 with `Retry-After`.
   - Visitors are counted by IP address: the connection's own unless `core.identity.trusted_proxy_header` is set, because a spoofable header must never be trusted by default.
   - The system actor and administrators aren't limited.
@@ -169,40 +171,41 @@ None in this module. The dashboard shell arrives with `core.vendor` (ARCH-13) an
   - When WordPress authenticates an application password, Mercatus finds the client from the password's application ID and checks its status, the password's lifetime and the IP allow-list. The client's scopes then cap the user's permissions.
   - Scopes use the same vocabulary as permissions (DRY-1), plus `read` (safe methods) and `write` (everything else) for routes that name no permission.
   - Cookie requests have no client.
-  - Passwords that don't map to a client follow OQ-3.
+  - Passwords that don't map to a client are refused (IDN-17).
 - **IDN-12 `/me`.** It's built from the identity, the kernel's feature manifest, the compiled menu and section providers, which other modules register. The menu shows an item only when the actor holds its permission and its module is active. A hidden item is never the security boundary (ARCH-13).
 - **IDN-13 Execution context.** An identity-backed execution context replaces the kernel's `WordPressExecutionContext`. Events and audit entries then record SEC-1 actor types instead of `user`. The system actor is unchanged (TM-39).
 - **IDN-14 Contracts and the shared kernel.**
   - **New contracts, additive (minor versions, ARCH-6):** the actor type and identity, claim sources, permission and menu providers, `/me` section providers, the resource policy interface, and `IdentityRevisions`.
   - **New in the shared kernel (DRY-2):** the base REST controller, the cursor codec and the ETag helpers.
 
+- **IDN-15 Administrators and marketplace managers (OQ-1).**
+  - `administrator` means WordPress users with `manage_options`.
+  - `marketplace_manager` means users an administrator appoints in Mercatus. The appointment is user meta, not a WordPress role, so it grants no WordPress or WooCommerce capabilities. WooCommerce Shop Managers get no Mercatus access unless appointed.
+  - All managers share one set of named permissions, ticked on a settings screen (`core.identity.manager_permissions`).
+  - Each manager has a vendor scope. In Free it is always all vendors; Pro narrows it to vendor groups or membership plans. Resource policies and list queries apply the scope, and a vendor outside it answers 404, so a scoped manager can't learn it exists (SEC-4).
+  - Per-manager permission overrides stay a seam, for when a real need appears.
+- **IDN-16 Vendor staff are Pro-only (OQ-2).** `vendor_staff` exists only while Pro Staff & Groups is active. Core defines the actor type and resolves staff through a claim source (IDN-3); Free vendors work alone. Master v2.8 adds `vendor_staff` to SEC-1's Pro-only actors.
+- **IDN-17 Application passwords from outside Mercatus (OQ-3).**
+  - Mercatus accepts an application password only when its application ID belongs to a client an administrator registered: an integration or an app.
+  - The password then gets that client's scopes, capped by the user's own permissions, and the client's password lifetime.
+  - Any other password gets 401 `mercatus_api_client_unregistered` on Mercatus routes.
+  - Mobile apps sign in through WordPress's own authorize-application flow, with the app's registered ID.
+- **IDN-18 Managing API clients (OQ-4).**
+  - Administrators use the REST endpoints in §4. Everyone sees and revokes their own app sign-ins through `/me/app-passwords`, since vendors never enter wp-admin.
+  - `wp mercatus api-client` WP-CLI commands run the same application commands, so integrations can be set up before the dashboard shell exists.
+  - Master v2.8 adds the endpoints to API-2.
+- **IDN-19 Rate limits (OQ-5).**
+  - A fixed one-minute window per actor and bucket: one counter increment per request.
+  - The actor is the user, the API client, or the IP address for visitors (IDN-10).
+  - There are two buckets: reads (`GET`, `HEAD`) and writes (everything else).
+  - Defaults per minute: visitors 120 reads and 20 writes; signed-in users 600 and 120; API clients 1,200 and 300 (§3).
+  - Routes that attract abuse, such as vendor applications and reviews, declare a tighter limit in their metadata.
+
 ## 11. Open questions
-- **OQ-1 Administrators and marketplace managers.** SEC-1's actor types are independent of WordPress roles, but they have to start from something WordPress knows.
-  - **(a, recommended)** `administrator` means users with `manage_options`. `marketplace_manager` means users an administrator appoints in Mercatus. The appointment is stored as user meta rather than a WordPress role, so it grants no WordPress or WooCommerce capabilities. All managers share one set of named permissions, ticked on a settings screen like WCFM's shop-manager capabilities. Per-manager overrides stay a seam for later. WooCommerce Shop Managers get no Mercatus access unless appointed.
-  - **(b)** As (a), but each manager has their own permission set.
-  - **(c)** WooCommerce Shop Managers (`manage_woocommerce` without `manage_options`) become marketplace managers automatically, with the shared permission set.
-- **OQ-2 Vendor staff in Free.** SCOPE puts Groups & Staff in Pro, and DATA-3 gives `staff_assignments` to Pro. But SEC-1 lists `vendor_staff` among the actors without making it Pro-only, as it does for `delivery_agent` and `affiliate`.
-  - **(a, recommended)** `vendor_staff` exists only while Pro Staff & Groups is active. Core defines the type and resolves staff through a claim source (IDN-3); Free vendors work alone. Master v2.8 adds `vendor_staff` to SEC-1's Pro-only actors.
-  - **(b)** Free gets basic staff. An owner invites people who can do everything in the store except money (withdrawals, payout details), and Pro adds groups, per-permission scope and locations. This needs a Core table, master changes to SCOPE and DATA-2, and more Free surface to secure (TM-7).
-- **OQ-3 Application passwords that Mercatus didn't create.** Any WordPress user can create application passwords on their profile screen or through WordPress's authorize-application screen, which mobile apps use to sign in. Such a password has no `api_clients` row, so it has no scopes, expiry or allow-list.
-  - **(a, recommended)** Accept such a password only when its application ID belongs to a client an administrator registered (an integration or an app). It then gets that client's scopes, capped by the user's own permissions, and the client's password lifetime. Any other password gets 401 `mercatus_api_client_unregistered` on Mercatus routes. Mobile apps sign in through WordPress's own flow, using the app's registered ID.
-  - **(b)** Refuse every password Mercatus didn't create itself. Mobile apps would then need a Mercatus sign-in flow, which v1 doesn't have.
-  - **(c)** Accept any application password as the user, with no scope limit. This is simplest, but a leaked password works everywhere until the user deletes it, which weakens TM-2.
-- **OQ-4 Where API clients are managed.** API-2 has no endpoints for them.
-  - **(a, recommended)** REST endpoints for administrators, plus `/me/app-passwords` for everyone (§4). Add `wp mercatus api-client` WP-CLI commands over the same application commands, so integrations can be set up before the dashboard shell exists. Master v2.8 adds the endpoints to API-2.
-  - **(b)** The REST endpoints only, without WP-CLI.
-  - **(c)** WP-CLI only in v1, with REST later. No master change, but vendors can't see or revoke their app sign-ins, since they never enter wp-admin.
-- **OQ-5 Rate-limit model and defaults (PLAT-8).**
-  - **(a, recommended)** A fixed one-minute window per actor and bucket: one counter increment per request.
-    - The actor is the user, the API client, or the IP address for visitors.
-    - There are two buckets: reads (`GET`, `HEAD`) and writes (everything else).
-    - Defaults per minute: visitors 120 reads and 20 writes; signed-in users 600 and 120; API clients 1,200 and 300 (§3).
-    - Routes that attract abuse, such as vendor applications and reviews, declare a tighter limit in their metadata.
-  - **(b)** A sliding window or token bucket: smoother under bursts, but two cache operations per request.
-  - **(c)** One bucket per actor for every method.
+None. All five were answered on 2026-10-24 and are recorded as IDN-15 to IDN-19.
 
 ## 12. Done when
-- If the answers to OQ-2 and OQ-4 need it, master v2.8 is merged.
+- Master v2.8 is merged (IDN-16, IDN-18).
 - The TEST-3 row 4 tests, `EtagFromVersionTest` and `SortAndFilterAllowListTest` pass in CI with and without a persistent cache (ROAD-2 step 9). So do the admin-allowed cases of the kernel's auth tests.
 - `openapi/mercatus-v1.yaml` includes `/me` and the API-client routes, and Redocly passes.
 - The scale gate has the identity scenarios, with their ceilings fixed.
