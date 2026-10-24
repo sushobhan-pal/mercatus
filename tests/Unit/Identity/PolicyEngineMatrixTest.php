@@ -13,7 +13,7 @@ use Mercatus\Core\Contracts\Http\Access;
 use Mercatus\Core\Contracts\Identity\ActorIdentity;
 use Mercatus\Core\Contracts\Identity\ActorType;
 use Mercatus\Core\Contracts\Identity\VendorScope;
-use Mercatus\Core\Identity\Domain\AccessDecision;
+use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Identity\Domain\PolicyEngine;
 use PHPUnit\Framework\TestCase;
 

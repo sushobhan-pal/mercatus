@@ -68,6 +68,8 @@ use Mercatus\Core\Kernel\Settings\OptionSettingsStore;
 use Mercatus\Core\Kernel\Settings\SettingsRegistry;
 use Mercatus\Core\Kernel\Settings\SettingsStore;
 use Mercatus\Core\Shared\Clock\Clock;
+use Mercatus\Core\Vendor\Application\VendorDirectory;
+use Mercatus\Core\Vendor\Infrastructure\Vendors;
 use Mercatus\Core\Shared\Clock\SystemClock;
 
 /**
@@ -178,6 +180,7 @@ final class Kernel {
 		$container->factory( IdentityRevisions::class, static fn( Container $services ): IdentityRevisions => $services->get( IdentityResolver::class ) );
 		$container->factory( AccessGate::class, static fn( Container $services ): AccessGate => $services->get( PolicyAccessGate::class ) );
 		$container->factory( ApiClientDirectory::class, static fn( Container $services ): ApiClientDirectory => $services->get( ApiClients::class ) );
+		$container->factory( VendorDirectory::class, static fn( Container $services ): VendorDirectory => $services->get( Vendors::class ) );
 		$container->factory( RateLimiter::class, static fn( Container $services ): RateLimiter => new RateLimiter( $services->get( CoordinationPort::class ), $services->get( SettingsReader::class ), static fn(): int => $services->get( Clock::class )->now()->getTimestamp() ) );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
 		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );

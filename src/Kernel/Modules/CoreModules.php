@@ -23,6 +23,14 @@ use Mercatus\Core\Kernel\Http\KernelRoutes;
 use Mercatus\Core\Kernel\KernelMigrations;
 use Mercatus\Core\Kernel\KernelPermissions;
 use Mercatus\Core\Kernel\KernelSettings;
+use Mercatus\Core\Vendor\Api\VendorMenu;
+use Mercatus\Core\Vendor\Api\VendorMeSection;
+use Mercatus\Core\Vendor\Api\VendorPermissions;
+use Mercatus\Core\Vendor\Api\VendorRoutes;
+use Mercatus\Core\Vendor\Application\VendorSettings;
+use Mercatus\Core\Vendor\Infrastructure\VendorClaimSource;
+use Mercatus\Core\Vendor\Infrastructure\VendorHooks;
+use Mercatus\Core\Vendor\Infrastructure\VendorMigrations;
 
 /**
  * Each module joins this list when it's built. Only Reviews and Shipping will be optional (ARCH-6).
@@ -50,6 +58,22 @@ final class CoreModules {
 					settings: IdentitySettings::class,
 					hooks: IdentityHooks::class,
 					claimSources: array( WordPressClaimSource::class ),
+				),
+				false,
+				true
+			),
+			new RegisteredModule(
+				new ModuleManifest(
+					id: 'core.vendor',
+					version: $version,
+					routes: VendorRoutes::class,
+					migrations: VendorMigrations::class,
+					permissions: VendorPermissions::class,
+					dashboardMenu: VendorMenu::class,
+					settings: VendorSettings::class,
+					hooks: VendorHooks::class,
+					claimSources: array( VendorClaimSource::class ),
+					meSections: array( VendorMeSection::class ),
 				),
 				false,
 				true

@@ -12,7 +12,7 @@ namespace Mercatus\Core\Kernel\Http;
 use Mercatus\Core\Contracts\Http\Access;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Identity\Application\PermissionCatalog;
-use Mercatus\Core\Identity\Domain\AccessDecision;
+use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Identity\Domain\PolicyEngine;
 use Mercatus\Core\Identity\Infrastructure\ApiClientAuthentication;
 use WP_Error;

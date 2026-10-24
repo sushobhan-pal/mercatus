@@ -665,6 +665,9 @@ paths:
                     required:
                       - modules
                       - features
+                  sections:
+                    type: object
+                    description: "Other modules' sections, keyed by module, for example vendor."
                   menu:
                     type: array
                     items:
@@ -689,6 +692,7 @@ paths:
                   - actor
                   - permissions
                   - features
+                  - sections
                   - menu
         4XX:
           $ref: '#/components/responses/Error'
@@ -952,6 +956,793 @@ paths:
       x-mercatus-access: admin
       x-mercatus-permission: kernel.cache.flush
       x-mercatus-resource: cache_group
+  /vendor-applications:
+    get:
+      operationId: getVendorApplications
+      summary: 'The application review queue'
+      tags:
+        - vendor-applications
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - id
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+        -
+          name: status
+          in: query
+          required: false
+          description: 'Filter by status.'
+          schema:
+            type: string
+            enum:
+              - pending
+              - approved
+              - rejected
+              - withdrawn
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        user_id:
+                          type: integer
+                        attempt:
+                          type: integer
+                        status:
+                          type: string
+                          enum:
+                            - pending
+                            - approved
+                            - rejected
+                            - withdrawn
+                        store_name:
+                          type: string
+                        answers:
+                          type: array
+                          items:
+                            type: object
+                        reason:
+                          type:
+                            - string
+                            - 'null'
+                        decided_by:
+                          type:
+                            - integer
+                            - 'null'
+                        decided_at:
+                          type:
+                            - string
+                            - 'null'
+                        created_at:
+                          type: string
+                        updated_at:
+                          type: string
+                        version:
+                          type: integer
+                      required:
+                        - id
+                        - user_id
+                        - attempt
+                        - status
+                        - store_name
+                        - answers
+                        - reason
+                        - decided_by
+                        - decided_at
+                        - created_at
+                        - updated_at
+                        - version
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: vendors.applications.review
+      x-mercatus-resource: vendor_application
+  '/vendor-applications/{id}':
+    get:
+      operationId: getVendorApplicationsId
+      summary: 'An application with its earlier attempts'
+      tags:
+        - vendor-applications
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  attempt:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - approved
+                      - rejected
+                      - withdrawn
+                  store_name:
+                    type: string
+                  answers:
+                    type: array
+                    items:
+                      type: object
+                  reason:
+                    type:
+                      - string
+                      - 'null'
+                  decided_by:
+                    type:
+                      - integer
+                      - 'null'
+                  decided_at:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - user_id
+                  - attempt
+                  - status
+                  - store_name
+                  - answers
+                  - reason
+                  - decided_by
+                  - decided_at
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: authenticated
+      x-mercatus-resource: vendor_application
+  '/vendor-applications/{id}/approve':
+    post:
+      operationId: postVendorApplicationsIdApprove
+      summary: 'Approve an application'
+      tags:
+        - vendor-applications
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  attempt:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - approved
+                      - rejected
+                      - withdrawn
+                  store_name:
+                    type: string
+                  answers:
+                    type: array
+                    items:
+                      type: object
+                  reason:
+                    type:
+                      - string
+                      - 'null'
+                  decided_by:
+                    type:
+                      - integer
+                      - 'null'
+                  decided_at:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - user_id
+                  - attempt
+                  - status
+                  - store_name
+                  - answers
+                  - reason
+                  - decided_by
+                  - decided_at
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: vendors.applications.review
+      x-mercatus-resource: vendor_application
+  '/vendor-applications/{id}/reject':
+    post:
+      operationId: postVendorApplicationsIdReject
+      summary: 'Reject an application'
+      tags:
+        - vendor-applications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+              required:
+                - reason
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  attempt:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - approved
+                      - rejected
+                      - withdrawn
+                  store_name:
+                    type: string
+                  answers:
+                    type: array
+                    items:
+                      type: object
+                  reason:
+                    type:
+                      - string
+                      - 'null'
+                  decided_by:
+                    type:
+                      - integer
+                      - 'null'
+                  decided_at:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - user_id
+                  - attempt
+                  - status
+                  - store_name
+                  - answers
+                  - reason
+                  - decided_by
+                  - decided_at
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: vendors.applications.review
+      x-mercatus-resource: vendor_application
+  /vendor-registrations:
+    post:
+      operationId: postVendorRegistrations
+      summary: 'Apply to become a vendor'
+      tags:
+        - vendor-registrations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                first_name:
+                  type: string
+                  maxLength: 100
+                last_name:
+                  type: string
+                  maxLength: 100
+                password:
+                  type: string
+                store_name:
+                  type: string
+                  minLength: 1
+                  maxLength: 191
+                phone:
+                  type: string
+                  maxLength: 191
+                message:
+                  type: string
+                  maxLength: 5000
+                accept_terms:
+                  type: boolean
+                answers:
+                  type: object
+                  description: "Answers to the administrator's questions, by question ID."
+              required:
+                - store_name
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  application:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      user_id:
+                        type: integer
+                      attempt:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - pending
+                          - approved
+                          - rejected
+                          - withdrawn
+                      store_name:
+                        type: string
+                      answers:
+                        type: array
+                        items:
+                          type: object
+                      reason:
+                        type:
+                          - string
+                          - 'null'
+                      decided_by:
+                        type:
+                          - integer
+                          - 'null'
+                      decided_at:
+                        type:
+                          - string
+                          - 'null'
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      version:
+                        type: integer
+                    required:
+                      - id
+                      - user_id
+                      - attempt
+                      - status
+                      - store_name
+                      - answers
+                      - reason
+                      - decided_by
+                      - decided_at
+                      - created_at
+                      - updated_at
+                      - version
+                  account_created:
+                    type: boolean
+                required:
+                  - application
+                  - account_created
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security: []
+      x-mercatus-access: public
+      x-mercatus-resource: vendor_registration
+  /vendors:
+    get:
+      operationId: getVendors
+      summary: 'List vendors'
+      tags:
+        - vendors
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - id
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+        -
+          name: status
+          in: query
+          required: false
+          description: 'Filter by status.'
+          schema:
+            type: string
+            enum:
+              - active
+              - suspended
+              - closed
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        user_id:
+                          type: integer
+                        application_id:
+                          type: integer
+                        status:
+                          type: string
+                          enum:
+                            - active
+                            - suspended
+                            - closed
+                        reason:
+                          type:
+                            - string
+                            - 'null'
+                        created_at:
+                          type: string
+                        updated_at:
+                          type: string
+                        version:
+                          type: integer
+                      required:
+                        - id
+                        - user_id
+                        - application_id
+                        - status
+                        - reason
+                        - created_at
+                        - updated_at
+                        - version
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: vendors.manage
+      x-mercatus-resource: vendor
+  '/vendors/{id}/reinstate':
+    post:
+      operationId: postVendorsIdReinstate
+      summary: 'Reinstate a vendor'
+      tags:
+        - vendors
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  application_id:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - closed
+                  reason:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - user_id
+                  - application_id
+                  - status
+                  - reason
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: vendors.manage
+      x-mercatus-resource: vendor
+  '/vendors/{id}/suspend':
+    post:
+      operationId: postVendorsIdSuspend
+      summary: 'Suspend a vendor'
+      tags:
+        - vendors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+              required:
+                - reason
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  application_id:
+                    type: integer
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - closed
+                  reason:
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - user_id
+                  - application_id
+                  - status
+                  - reason
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: vendors.manage
+      x-mercatus-resource: vendor
 components:
   schemas:
     Error:

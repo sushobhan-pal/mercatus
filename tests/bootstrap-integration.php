@@ -76,30 +76,35 @@ tests_add_filter(
 );
 
 // Each test runs inside the test suite's transaction, so the site kernel's transactions use savepoints there
-// (KER-21); a real COMMIT would end the test's transaction and leak its rows into later tests.
+// (KER-21); a real COMMIT would end the test's transaction and leak its rows into later tests. The factory is
+// registered while the site kernel starts, before any module hook can build a service that holds the runner.
 tests_add_filter(
-	'plugins_loaded',
+	'mercatus_register_modules',
 	static function (): void {
-		global $wpdb;
-		$kernel = \Mercatus\Core\Kernel\Kernel::instance();
-		if ( null === $kernel ) {
+		static $done = false;
+		$kernel      = \Mercatus\Core\Kernel\Kernel::instance();
+		if ( $done || null === $kernel ) {
 			return;
 		}
-		$services = $kernel->container();
-		$services->instance(
+		$done = true;
+		$kernel->container()->factory(
 			\Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner::class,
-			new \Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner(
-				$wpdb,
-				$services->get( \Mercatus\Core\Infrastructure\Database\UnitOfWork::class ),
-				$services->get( \Mercatus\Core\Infrastructure\Outbox\OutboxStore::class ),
-				$services->get( \Mercatus\Core\Infrastructure\Audit\AuditStore::class ),
-				$services->get( \Mercatus\Core\Infrastructure\Outbox\OutboxProcessor::class ),
-				$services->get( \Mercatus\Core\Shared\Clock\Clock::class ),
-				true
-			)
+			static function ( \Mercatus\Core\Kernel\Container $services ): \Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner {
+				global $wpdb;
+
+				return new \Mercatus\Core\Infrastructure\Database\WpdbTransactionRunner(
+					$wpdb,
+					$services->get( \Mercatus\Core\Infrastructure\Database\UnitOfWork::class ),
+					$services->get( \Mercatus\Core\Infrastructure\Outbox\OutboxStore::class ),
+					$services->get( \Mercatus\Core\Infrastructure\Audit\AuditStore::class ),
+					$services->get( \Mercatus\Core\Infrastructure\Outbox\OutboxProcessor::class ),
+					$services->get( \Mercatus\Core\Shared\Clock\Clock::class ),
+					true
+				);
+			}
 		);
 	},
-	11
+	1
 );
 
 require_once $mercatus_tests_dir . '/includes/bootstrap.php';

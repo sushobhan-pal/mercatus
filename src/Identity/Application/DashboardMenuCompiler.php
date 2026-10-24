@@ -11,7 +11,7 @@ namespace Mercatus\Core\Identity\Application;
 
 use Mercatus\Core\Contracts\Identity\ActorIdentity;
 use Mercatus\Core\Contracts\Identity\MenuItem;
-use Mercatus\Core\Identity\Domain\AccessDecision;
+use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Identity\Domain\PolicyEngine;
 
 /**
