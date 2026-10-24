@@ -1,6 +1,6 @@
 # Mercatus — Master Architecture, Decisions & Testing Constitution
 
-**Version:** 2.9, frozen 2026-10-24.
+**Version:** 2.10, frozen 2026-10-24.
 **Scope:** the single source of truth for **Mercatus** (free) and **Mercatus Pro**: product decisions, architecture, data model, security, testing and roadmap.
 **Change control:** this document is frozen. A change needs the product owner's approval, is made directly in the section it belongs to, and raises the version. The previous version is archived in `archive/`.
 
@@ -141,7 +141,7 @@ A reviewer, human or AI, **MUST REJECT** a pull request, commit or generated cha
   - Pages Mercatus creates, such as the marketplace dashboard, resolve to their translations.
   - Strings an administrator enters (application questions, labels, choices) register with the plugin's string translation and are shown translated.
   - Emails and messages to customers and vendors use the recipient's language.
-  - Vendor content (store names, descriptions, products) follows the multilingual plugin's own model for posts and WooCommerce (WooCommerce Multilingual).
+  - Vendor content stored as WordPress posts and WooCommerce products follows the multilingual plugin's own model (WooCommerce Multilingual). Store profiles live in Mercatus's own table and are shown as the vendor wrote them, one language per store; translated storefronts belong to Pro's branded storefronts.
   - Each module's decision file says how its content is translated.
 
 ---
@@ -413,7 +413,7 @@ return new ModuleManifest(
 | **API clients** | `GET /api-clients`, `POST /api-clients`, `PATCH /api-clients/{id}`, `POST /api-clients/{id}/revoke`, `POST /api-clients/{id}/passwords` (admin); `GET /me/app-passwords`, `POST /me/app-passwords/{uuid}/revoke` (SEC-1) |
 | **Vendor applications** | `POST /vendor-registrations` (a visitor or a customer; creates the visitor's WooCommerce account), `GET /vendor-applications` (review queue), `GET /vendor-applications/{id}` (with the applicant's earlier attempts), `POST /vendor-applications/{id}/approve`, `POST /vendor-applications/{id}/reject` |
 | **Vendors** | `GET /vendors`, `POST /vendors/{id}/suspend`, `POST /vendors/{id}/reinstate` (admin) |
-| **Stores** | `GET /stores`, `GET /stores/{slug}`, `GET /me/store`, `PATCH /me/store` |
+| **Stores** | `GET /stores`, `GET /stores/{slug}`, `GET /me/store`, `PATCH /me/store`; `GET /stores/{id}`, `PATCH /stores/{id}` and the visibility and status filters on `GET /stores` (admin) |
 | **Catalog** | `GET /catalog/categories`, `GET /catalog/categories/{id}/schema`, `GET /catalog/attributes/{id}/terms`, `GET /catalog/offers`, `GET /catalog/products/{id}/offers` |
 | **Vendor products & offers** | `GET /me/products`, `POST /me/products`, `GET /me/products/{id}`, `PATCH /me/products/{id}`, `DELETE /me/products/{id}`, `PATCH /me/offers/{id}/inventory` |
 | **Media** | `POST /me/media`, `GET /me/media`, `DELETE /me/media/{id}` |
