@@ -1,6 +1,6 @@
 # Mercatus — Master Architecture, Decisions & Testing Constitution
 
-**Version:** 2.7, frozen 2026-10-23.
+**Version:** 2.8, frozen 2026-10-24.
 **Scope:** the single source of truth for **Mercatus** (free) and **Mercatus Pro**: product decisions, architecture, data model, security, testing and roadmap.
 **Change control:** this document is frozen. A change needs the product owner's approval, is made directly in the section it belongs to, and raises the version. The previous version is archived in `archive/`.
 
@@ -267,7 +267,7 @@ return new ModuleManifest(
   - **Writes** go through WooCommerce CRUD and HPOS data stores, never directly into WooCommerce tables.
   - **Price and stock:** Mercatus offers and inventory are the source of truth; WooCommerce `_price` and `_stock` are copies written by Mercatus.
   - **Projection sync:** WooCommerce product and stock saves made outside Mercatus update the read projections, and a nightly job reconciles them. A vendor's own edit updates that product's projection row immediately.
-- **ARCH-13 One marketplace dashboard.** All Mercatus management happens in one uncluttered, full-screen dashboard on a frontend page, shared by every role: administrators, marketplace managers, vendors, vendor staff and, with their Pro modules, delivery agents and affiliates. Each user sees only the menu items and screens that their actor type, capabilities and active modules allow. Mercatus adds no management screens to wp-admin beyond a menu link that opens the dashboard, and vendors never enter wp-admin (SEC-8). The dashboard is a React app built with `@wordpress/scripts`, `@wordpress/components` and `@wordpress/data`, talking only to the Mercatus REST API. Each module declares its menu items and screens in its manifest (ARCH-6), with the capability each requires, and `/me` returns the menu for the current actor. A hidden menu item is never the security boundary: every screen's API calls pass the same policies (SEC-2). Buyer-facing store pages stay server-rendered blocks (ARCH-9).
+- **ARCH-13 One marketplace dashboard.** All Mercatus management happens in one uncluttered, full-screen dashboard on a frontend page, shared by every role: administrators, marketplace managers, vendors and, with their Pro modules, vendor staff, delivery agents and affiliates. Each user sees only the menu items and screens that their actor type, capabilities and active modules allow. Mercatus adds no management screens to wp-admin beyond a menu link that opens the dashboard, and vendors never enter wp-admin (SEC-8). The dashboard is a React app built with `@wordpress/scripts`, `@wordpress/components` and `@wordpress/data`, talking only to the Mercatus REST API. Each module declares its menu items and screens in its manifest (ARCH-6), with the capability each requires, and `/me` returns the menu for the current actor. A hidden menu item is never the security boundary: every screen's API calls pass the same policies (SEC-2). Buyer-facing store pages stay server-rendered blocks (ARCH-9).
 
 ### DRY rules
 
@@ -375,7 +375,7 @@ return new ModuleManifest(
 
 ## 11. Identity & Security
 
-- **SEC-1 Actors and authentication.** Actors resolve into an immutable `ActorIdentity`, independent of WordPress roles: `anonymous`, `customer`, `vendor_owner`, `vendor_staff`, `delivery_agent`, `affiliate`, `marketplace_manager`, `administrator`, `integration_client` and `webhook_provider`. `delivery_agent` and `affiliate` exist only while their Pro modules are active.
+- **SEC-1 Actors and authentication.** Actors resolve into an immutable `ActorIdentity`, independent of WordPress roles: `anonymous`, `customer`, `vendor_owner`, `vendor_staff`, `delivery_agent`, `affiliate`, `marketplace_manager`, `administrator`, `integration_client` and `webhook_provider`. `vendor_staff`, `delivery_agent` and `affiliate` exist only while their Pro modules (Staff & Groups, Delivery, Affiliate) are active.
   - Browser UIs: WordPress cookies plus `X-WP-Nonce`.
   - Server-to-server integrations and, in v1, mobile apps: WordPress Application Passwords mapped to `wp_mercatus_api_clients`, with scopes, expiry and revocation, and optional IP allow-lists. An OAuth2/PKCE server is not in v1 and would arrive as its own module.
   - Webhooks: raw-body HMAC signature verification, a timestamp window and stored event-ID replay defence.
@@ -403,6 +403,7 @@ return new ModuleManifest(
 | Area | Endpoints |
 |---|---|
 | **Bootstrap & system** | `GET /me` (actor, store summary, active features), `GET /features`, `GET /health`, `POST /system/cache/flush-group` (PLAT-5), `GET /modules`, `POST /modules/{id}/activate`, `POST /modules/{id}/deactivate` (optional modules only, ARCH-6) |
+| **API clients** | `GET /api-clients`, `POST /api-clients`, `PATCH /api-clients/{id}`, `POST /api-clients/{id}/revoke`, `POST /api-clients/{id}/passwords` (admin); `GET /me/app-passwords`, `POST /me/app-passwords/{uuid}/revoke` (SEC-1) |
 | **Vendor applications** | `POST /vendor-applications`, `GET /vendor-applications/{id}`, `POST /vendor-applications/{id}/approve`, `POST /vendor-applications/{id}/reject` |
 | **Stores** | `GET /stores`, `GET /stores/{slug}`, `GET /me/store`, `PATCH /me/store`, `POST /stores/{id}/suspend` |
 | **Catalog** | `GET /catalog/categories`, `GET /catalog/categories/{id}/schema`, `GET /catalog/attributes/{id}/terms`, `GET /catalog/offers`, `GET /catalog/products/{id}/offers` |
