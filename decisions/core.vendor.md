@@ -4,7 +4,7 @@
 **Phase / position:** Phase 2, module 3 in ROAD-3
 **Branch:** `core.vendor`
 **Depends on:** `core.identity` (module 2)
-**Implements master rules:** ROAD-3 row 3, SCOPE-2 (vendor application and approval), SEC-2 and SEC-4 (vendor resources), SEC-7 (TM-33), SEC-8, ARCH-6 and ARCH-8 points 3, 5 and 7, ARCH-12 (accounts through WooCommerce, emails through `WC_Email`), ARCH-13 (the dashboard shell), API-2 (vendor applications), DATA-2 (`vendors`, and `vendor_applications` from master v2.9), DRY-2 (the state machine), TEST-1 Layer 7, TEST-3 row 5 (the vendor half)
+**Implements master rules:** ROAD-3 row 3, SCOPE-2 (vendor application and approval), SEC-2 and SEC-4 (vendor resources), SEC-7 (TM-33), SEC-8, ARCH-6 and ARCH-8 points 3, 5 and 7, ARCH-12 (accounts through WooCommerce, emails through `WC_Email`), ARCH-13 (the dashboard shell), API-2 (vendor applications), DATA-2 (`vendors`, and `vendor_applications` from master v2.9), DRY-2 (the state machine), PLAT-11 (multilingual), TEST-1 Layer 7, TEST-3 row 5 (the vendor half)
 
 Rules for this file (P-4, DRY-4): cite master IDs instead of restating them, never contradict the master document, and give each decision made here a local ID using the module's short code (for example `KER-1`). If this module needs a master rule changed, the master document changes first.
 
@@ -196,11 +196,11 @@ Routes follow API-1 through the base REST controller and the route pipeline (IDN
 - **VEN-15 The dashboard page and languages (OQ-5).**
   - On activation Mercatus creates a "Marketplace dashboard" page (slug `dashboard`) and records it in `core.vendor.dashboard_page`; the administrator can choose another.
   - On that page Mercatus renders its own minimal document instead of the theme, so the dashboard is full-screen and only Mercatus's scripts load (VEN-10).
-  - **Multilingual (WPML and the like), through their documented APIs and never as a hard dependency:**
+  - **Multilingual (PLAT-11), through WPML's and Polylang's documented APIs:**
     - Any translation of the dashboard page counts as the dashboard (WPML's `wpml_object_id`, Polylang's `pll_get_post`).
     - Strings the administrator enters, such as the questions and their choices, register with WPML String Translation (`wpml_register_single_string`) and are shown translated.
     - The app's strings load through `wp.i18n`, and emails switch to the recipient's language.
-  - The master has no multilingual rule yet, and the requirement reaches every module (store names and slugs, the catalog, emails). Master v2.9 adds one.
+  - PLAT-11 (master v2.9) makes multilingual support a rule for every module; this is core.vendor's part of it.
 - **VEN-16 Settings and managers endpoints (OQ-6).** Master v2.9 adds `GET /vendor-applications`, `GET`/`PATCH /settings/{module}` and the `/managers` endpoints to API-2 (§4). The settings endpoint emits `kernel.settings.updated` and, when the managers' permissions change, `identity.manager.permissions_changed`.
 - **VEN-17 Suspension is a vendor action (OQ-7).**
   - `GET /vendors`, `POST /vendors/{id}/suspend` and `POST /vendors/{id}/reinstate` come with this module; master v2.9 moves the suspend endpoint from Stores to Vendors.
