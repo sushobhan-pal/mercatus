@@ -9,10 +9,10 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Kernel\Http;
 
-use Mercatus\Core\Contracts\Http\Access;
 use Mercatus\Core\Contracts\Http\RouteRegistrar;
 use WP_Error;
 use WP_REST_Request;
+use WP_REST_Response;
 
 /**
  * Validates each endpoint's route metadata, attaches the access gate as its permission callback and registers
@@ -33,9 +33,10 @@ final class WordPressRouteRegistrar implements RouteRegistrar {
 	/**
 	 * Creates the registrar.
 	 *
-	 * @param AccessGate $gate Permission checks.
+	 * @param AccessGate    $gate     Knows which permissions exist.
+	 * @param RoutePipeline $pipeline What every endpoint runs through.
 	 */
-	public function __construct( private AccessGate $gate ) {}
+	public function __construct( private AccessGate $gate, private RoutePipeline $pipeline ) {}
 
 	public function add( string $route, array $endpoints, ?callable $schema = null ): void {
 		if ( '' === $route || '0' === $route || ! str_starts_with( $route, '/' ) ) {
@@ -44,16 +45,14 @@ final class WordPressRouteRegistrar implements RouteRegistrar {
 		}
 		$accepted = array();
 		foreach ( $endpoints as $endpoint ) {
-			$meta       = is_array( $endpoint['mercatus'] ?? null ) ? $endpoint['mercatus'] : array();
-			$access     = is_string( $meta['access'] ?? null ) ? Access::tryFrom( $meta['access'] ) : null;
-			$permission = $meta['permission'] ?? null;
-			$known      = null === $permission || ( is_string( $permission ) && $this->gate->knows( $permission ) );
-			if ( null === $access || ! $known || isset( $endpoint['permission_callback'] ) || ! isset( $endpoint['callback'] ) ) {
+			$meta = RouteMeta::of( $endpoint );
+			if ( null === $meta || ( null !== $meta->permission && ! $this->gate->knows( $meta->permission ) ) || isset( $endpoint['permission_callback'] ) || ! is_callable( $endpoint['callback'] ?? null ) ) {
 				$this->refused[] = ( is_string( $endpoint['methods'] ?? null ) ? $endpoint['methods'] : '?' ) . ' ' . $route;
 				continue;
 			}
-			$permission                      = is_string( $permission ) ? $permission : null;
-			$endpoint['permission_callback'] = fn( WP_REST_Request $request ): true|WP_Error => $this->gate->check( $access, $permission, $request );
+			$callback                        = $endpoint['callback'];
+			$endpoint['permission_callback'] = fn( WP_REST_Request $request ): true|WP_Error => $this->pipeline->permit( $meta, $request );
+			$endpoint['callback']            = fn( WP_REST_Request $request ): WP_REST_Response|WP_Error => $this->pipeline->run( $meta, $callback, $request );
 			$accepted[]                      = $endpoint;
 		}
 		if ( array() === $accepted ) {

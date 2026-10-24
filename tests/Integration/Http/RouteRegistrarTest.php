@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Tests\Integration\Http;
 
 use Mercatus\Core\Kernel\Http\AccessGate;
+use Mercatus\Core\Kernel\Http\RoutePipeline;
 use Mercatus\Core\Kernel\Http\WordPressRouteRegistrar;
 use Mercatus\Core\Kernel\Kernel;
 use WP_UnitTestCase;
@@ -23,7 +24,7 @@ final class RouteRegistrarTest extends WP_UnitTestCase {
 	public function testRefusesEndpointsWithoutValidMetadata(): void {
 		$kernel = Kernel::instance();
 		$this->assertNotNull( $kernel );
-		$registrar = new WordPressRouteRegistrar( $kernel->container()->get( AccessGate::class ) );
+		$registrar = new WordPressRouteRegistrar( $kernel->container()->get( AccessGate::class ), $kernel->container()->get( RoutePipeline::class ) );
 		$callback  = static fn(): array => array();
 
 		$registrar->add(

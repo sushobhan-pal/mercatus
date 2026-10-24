@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Kernel\Http;
 
 use Mercatus\Core\Shared\Errors\DomainError;
+use Mercatus\Core\Shared\Http\ApiError;
 use WP_Error;
 
 /**
@@ -24,16 +25,16 @@ final class ErrorResponse {
 	 * @param DomainError $error Error.
 	 */
 	public static function from( DomainError $error ): WP_Error {
-		[ $status, $message ] = match ( $error->errorCode ) {
-			'mercatus_module_unknown'      => array( 404, __( 'There is no such module.', 'mercatus' ) ),
-			'mercatus_module_not_optional' => array( 409, __( 'This module is always on.', 'mercatus' ) ),
-			'mercatus_module_requires'     => array( 409, __( 'Switch on the module this one needs first.', 'mercatus' ) ),
-			'mercatus_module_required_by'  => array( 409, __( 'Another active module needs this one.', 'mercatus' ) ),
-			'mercatus_setting_unknown'     => array( 404, __( 'There is no such setting.', 'mercatus' ) ),
-			'mercatus_setting_invalid'     => array( 422, __( 'That value is not allowed for this setting.', 'mercatus' ) ),
-			default                        => array( 400, __( 'The request could not be completed.', 'mercatus' ) ),
-		};
-
-		return new WP_Error( $error->errorCode, $message, array_merge( array( 'status' => $status ), $error->details ) );
+		return ApiError::from(
+			$error,
+			array(
+				'mercatus_module_unknown'      => array( 404, __( 'There is no such module.', 'mercatus' ) ),
+				'mercatus_module_not_optional' => array( 409, __( 'This module is always on.', 'mercatus' ) ),
+				'mercatus_module_requires'     => array( 409, __( 'Switch on the module this one needs first.', 'mercatus' ) ),
+				'mercatus_module_required_by'  => array( 409, __( 'Another active module needs this one.', 'mercatus' ) ),
+				'mercatus_setting_unknown'     => array( 404, __( 'There is no such setting.', 'mercatus' ) ),
+				'mercatus_setting_invalid'     => array( 422, __( 'That value is not allowed for this setting.', 'mercatus' ) ),
+			)
+		);
 	}
 }

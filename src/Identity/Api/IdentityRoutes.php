@@ -17,6 +17,7 @@ use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Identity\Application\DashboardMenuCompiler;
 use Mercatus\Core\Identity\Application\FeatureSource;
 use Mercatus\Core\Identity\Application\PermissionCatalog;
+use Mercatus\Core\Shared\Http\ETag;
 use Mercatus\Core\Shared\Http\Schema;
 use WP_REST_Response;
 
@@ -61,20 +62,19 @@ final class IdentityRoutes implements RouteProvider {
 	public function me(): WP_REST_Response {
 		$actor    = $this->actors->identity();
 		$user     = get_userdata( $actor->userId );
-		$response = new WP_REST_Response(
-			array(
-				'actor'       => array(
-					'type'         => $actor->type->value,
-					'user_id'      => $actor->userId,
-					'display_name' => false === $user ? '' : $user->display_name,
-					'vendor_id'    => $actor->vendorId,
-				),
-				'permissions' => $actor->isAdministrator() ? array_keys( $this->permissions->all() ) : $actor->permissions,
-				'features'    => $this->features->toArray( $actor->isAdministrator() ),
-				'menu'        => $this->menu->compile( $actor ),
-			)
+		$data     = array(
+			'actor'       => array(
+				'type'         => $actor->type->value,
+				'user_id'      => $actor->userId,
+				'display_name' => false === $user ? '' : $user->display_name,
+				'vendor_id'    => $actor->vendorId,
+			),
+			'permissions' => $actor->isAdministrator() ? array_keys( $this->permissions->all() ) : $actor->permissions,
+			'features'    => $this->features->toArray( $actor->isAdministrator() ),
+			'menu'        => $this->menu->compile( $actor ),
 		);
-		$response->header( 'Cache-Control', 'private, no-cache' );
+		$response = new WP_REST_Response( $data );
+		$response->header( 'ETag', ETag::forContent( $data ) );
 
 		return $response;
 	}

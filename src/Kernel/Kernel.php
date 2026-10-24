@@ -32,6 +32,7 @@ use Mercatus\Core\Kernel\Events\DomainEventActionBridge;
 use Mercatus\Core\Contracts\Http\RouteProvider;
 use Mercatus\Core\Kernel\Http\AccessGate;
 use Mercatus\Core\Kernel\Http\PolicyAccessGate;
+use Mercatus\Core\Kernel\Http\ResponseFinisher;
 use Mercatus\Core\Kernel\Http\WordPressRouteRegistrar;
 use Mercatus\Core\Shared\Actor\ExecutionContext;
 use Mercatus\Core\Shared\Audit\AuditLog;
@@ -254,6 +255,7 @@ final class Kernel {
 	 */
 	private function attachSiteHooks(): void {
 		add_action( 'rest_api_init', array( $this, 'registerRoutes' ) );
+		add_filter( 'rest_request_after_callbacks', array( $this->container->get( ResponseFinisher::class ), 'finish' ), 10, 3 );
 		add_action( 'admin_post_mercatus_migrate', array( $this, 'handleMigrateRequest' ) );
 		add_action( self::POLL_HOOK, array( $this, 'runPoll' ) );
 		add_action( 'action_scheduler_begin_execute', array( $this, 'enterScheduler' ) );
