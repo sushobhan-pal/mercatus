@@ -7,6 +7,8 @@ import Applications from './Applications';
 import Managers from './Managers';
 import Modules from './Modules';
 import Settings from './Settings';
+import Store from './Store';
+import Stores from './Stores';
 import VendorAccount from './VendorAccount';
 import Vendors from './Vendors';
 
@@ -14,6 +16,8 @@ const screens = {
 	'vendor-account': VendorAccount,
 	'vendor-applications': Applications,
 	vendors: Vendors,
+	store: Store,
+	stores: Stores,
 	'api-clients': ApiClients,
 	managers: Managers,
 	modules: Modules,

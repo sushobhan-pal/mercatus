@@ -62,6 +62,13 @@ final class DependencyRulesTest extends TestCase {
 	}
 
 	/**
+	 * Only the outbound allow-list calls other hosts (SEC-7, TM-31).
+	 */
+	public function testSourceCallsOtherHostsOnlyThroughTheAllowList(): void {
+		$this->assertSame( array(), $this->scanner->outboundCalls( self::SRC_DIR ) );
+	}
+
+	/**
 	 * Every command handler and policy has a matching test file.
 	 */
 	public function testEveryHandlerAndPolicyHasATest(): void {
@@ -111,6 +118,16 @@ final class DependencyRulesTest extends TestCase {
 				'Sample/Domain/LeakyEntity.php:22 uses cache client Predis\\Client',
 			),
 			$this->scanner->cacheClientReferences( self::FIXTURE_SRC_DIR )
+		);
+	}
+
+	/**
+	 * The outbound rule catches a direct HTTP call in the fixtures.
+	 */
+	public function testOutboundRuleCatchesFixtureViolations(): void {
+		$this->assertSame(
+			array( 'Sample/Infrastructure/CallsOut.php:10 calls wp_remote_get() outside OutboundHttp' ),
+			$this->scanner->outboundCalls( self::FIXTURE_SRC_DIR )
 		);
 	}
 

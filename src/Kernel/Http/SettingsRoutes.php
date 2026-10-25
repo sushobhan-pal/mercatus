@@ -36,6 +36,11 @@ final class SettingsRoutes {
 	private const ROUTE = '/settings/(?P<module>[a-z]+\.[a-z][a-z0-9-]*)';
 
 	/**
+	 * What a stored secret shows as.
+	 */
+	public const MASK = '********';
+
+	/**
 	 * At most this many pages are offered by a page picker.
 	 */
 	private const PAGE_OPTIONS = 200;
@@ -151,6 +156,7 @@ final class SettingsRoutes {
 			SettingType::Boolean => 'checkbox',
 			SettingType::Integer => 'number',
 			SettingType::Choice  => 'select',
+			SettingType::Secret  => 'secret',
 			default              => 'text',
 		};
 		$options = match ( $widget ) {
@@ -166,7 +172,8 @@ final class SettingsRoutes {
 			'label'   => $label['label'] ?? $definition->key,
 			'help'    => $label['help'] ?? '',
 			'widget'  => $widget,
-			'value'   => $value,
+			// A secret is never returned: only whether one is stored (SEC-6).
+			'value'   => SettingType::Secret === $definition->type && '' !== $value ? self::MASK : $value,
 			'default' => $definition->defaultValue,
 			'minimum' => $definition->minimum,
 			'maximum' => $definition->maximum,
@@ -244,10 +251,11 @@ final class SettingsRoutes {
 		return ApiError::from(
 			$error,
 			array(
-				'mercatus_module_unknown'   => array( 404, __( 'There is no such active module.', 'mercatus' ) ),
-				'mercatus_setting_unknown'  => array( 422, __( 'That setting does not belong to this module.', 'mercatus' ) ),
-				'mercatus_setting_invalid'  => array( 422, __( 'One of the values does not fit its setting.', 'mercatus' ) ),
-				'mercatus_version_conflict' => array( 409, __( 'Someone changed these settings in the meantime; reload and try again.', 'mercatus' ) ),
+				'mercatus_module_unknown'         => array( 404, __( 'There is no such active module.', 'mercatus' ) ),
+				'mercatus_setting_unknown'        => array( 422, __( 'That setting does not belong to this module.', 'mercatus' ) ),
+				'mercatus_setting_invalid'        => array( 422, __( 'One of the values does not fit its setting.', 'mercatus' ) ),
+				'mercatus_version_conflict'       => array( 409, __( 'Someone changed these settings in the meantime; reload and try again.', 'mercatus' ) ),
+				'mercatus_encryption_key_missing' => array( 422, __( 'Secrets need an encryption key: define MERCATUS_ENCRYPTION_KEY in wp-config.php.', 'mercatus' ) ),
 			)
 		);
 	}

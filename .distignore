@@ -38,3 +38,4 @@ phpunit.xml.dist
 playwright.config.js
 redocly.yaml
 vitest.config.mjs
+webpack.config.js

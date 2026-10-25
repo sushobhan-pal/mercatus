@@ -99,6 +99,12 @@ body.mercatus-dashboard-page {
 	align-items: end;
 }
 
+.mercatus-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--mercatus-gap);
+}
+
 .mercatus-fieldset {
 	display: grid;
 	gap: 8px;

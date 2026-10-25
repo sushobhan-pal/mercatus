@@ -10,6 +10,8 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Database\Seeders;
 
 use Closure;
+use Mercatus\Core\Infrastructure\Outbox\OutboxWorker;
+use Mercatus\Core\Kernel\Kernel;
 use UnexpectedValueException;
 
 /**
@@ -55,6 +57,7 @@ final class ScaleBenchmarkSeeder {
 					$seeded[] = $module_id;
 				}
 			}
+			self::drainOutbox( $log );
 		} finally {
 			wp_defer_term_counting( false );
 			wp_defer_comment_counting( false );
@@ -91,6 +94,25 @@ final class ScaleBenchmarkSeeder {
 		}
 
 		return $step;
+	}
+
+	/**
+	 * Leaves the outbox empty, as a site whose poller keeps up has it; otherwise the steps' bulk events, such as
+	 * core.store's address changes, would wait in the dump and every poll would find them.
+	 *
+	 * @param Closure(string): void $log Progress output.
+	 */
+	private static function drainOutbox( Closure $log ): void {
+		$kernel = Kernel::instance();
+		if ( null === $kernel ) {
+			return;
+		}
+		$worker = $kernel->container()->get( OutboxWorker::class );
+		do {
+			$report = $worker->work();
+			self::betweenBatches();
+		} while ( $report->processed + $report->superseded + $report->retried + $report->failed > 0 );
+		$log( 'outbox drained' );
 	}
 
 	/**

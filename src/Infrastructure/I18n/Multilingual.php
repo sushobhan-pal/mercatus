@@ -76,6 +76,27 @@ final class Multilingual {
 	}
 
 	/**
+	 * A registered string in every active language, the original included, without repeats.
+	 *
+	 * @param string $name  Its name.
+	 * @param string $value The administrator's text.
+	 * @return list<string>
+	 */
+	public function translations( string $name, string $value ): array {
+		$values    = array( $value );
+		$languages = apply_filters( 'wpml_active_languages', null ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's public hook.
+		foreach ( is_array( $languages ) ? array_keys( $languages ) : array() as $code ) {
+			$values[] = apply_filters( 'wpml_translate_single_string', $value, self::CONTEXT, $name, (string) $code ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's public hook.
+		}
+		$codes = self::polylang( 'pll_languages_list' );
+		foreach ( is_array( $codes ) ? $codes : array() as $code ) {
+			$values[] = self::polylang( 'pll_translate_string', $value, $code );
+		}
+
+		return array_values( array_unique( array_filter( $values, static fn( mixed $text ): bool => is_string( $text ) && '' !== $text ) ) );
+	}
+
+	/**
 	 * A page's translation in the site's default language, or the page itself.
 	 *
 	 * @param int $post_id Page.
