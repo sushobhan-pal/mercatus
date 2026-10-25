@@ -95,6 +95,6 @@ return new class() implements SeedStep {
 		}
 		$latitude  = $city[3] + $context->random->getInt( -300, 300 ) / 10000;
 		$longitude = $city[4] + $context->random->getInt( -300, 300 ) / 10000;
-		$locations->setCoordinates( $pair[1]->id, $latitude, $longitude, Geohash::encode( $latitude, $longitude ), $clock->now() );
+		$locations->setCoordinates( $pair[1]->id, null, $latitude, $longitude, Geohash::encode( $latitude, $longitude ), $clock->now() );
 	}
 };

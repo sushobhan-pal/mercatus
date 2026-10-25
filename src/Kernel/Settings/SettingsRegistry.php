@@ -15,11 +15,13 @@ use Mercatus\Core\Contracts\Settings\SettingDefinition;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Contracts\Settings\SettingsWriter;
 use Mercatus\Core\Contracts\Settings\SettingType;
+use Mercatus\Core\Infrastructure\Crypto\SecretBox;
 use Mercatus\Core\Shared\Errors\DomainError;
 
 /**
  * Holds the active modules' settings. Reads return the stored value, or the default when nothing is stored or
  * the stored value no longer fits (for example after its definition changed). Writes are validated first.
+ * Secret settings are sealed before they're stored and opened when read (SEC-6).
  */
 final class SettingsRegistry implements SettingsReader, SettingsWriter {
 
@@ -38,11 +40,21 @@ final class SettingsRegistry implements SettingsReader, SettingsWriter {
 	private array $values = array();
 
 	/**
+	 * Seals and opens secret settings.
+	 *
+	 * @var SecretBox
+	 */
+	private SecretBox $secrets;
+
+	/**
 	 * Creates the registry.
 	 *
-	 * @param SettingsStore $store Storage.
+	 * @param SettingsStore  $store   Storage.
+	 * @param SecretBox|null $secrets Seals secret settings; the site's key when omitted.
 	 */
-	public function __construct( private SettingsStore $store ) {}
+	public function __construct( private SettingsStore $store, ?SecretBox $secrets = null ) {
+		$this->secrets = $secrets ?? new SecretBox();
+	}
 
 	/**
 	 * Adds an active module's settings and loads its stored values, which on an installed site costs no query
@@ -95,10 +107,12 @@ final class SettingsRegistry implements SettingsReader, SettingsWriter {
 			return $definition->defaultValue;
 		}
 		try {
-			return $definition->normalize( $stored[ $key ] );
+			$value = $definition->normalize( $stored[ $key ] );
 		} catch ( InvalidArgumentException ) {
 			return $definition->defaultValue;
 		}
+
+		return SettingType::Secret === $definition->type && '' !== $value ? (string) $this->secrets->open( (string) $value ) : $value;
 	}
 
 	/**
@@ -150,7 +164,7 @@ final class SettingsRegistry implements SettingsReader, SettingsWriter {
 
 		$module_id      = $definition->moduleId();
 		$values         = $this->stored( $module_id );
-		$values[ $key ] = $normalized;
+		$values[ $key ] = $this->sealed( $definition, $normalized );
 
 		$this->store->save( $module_id, $values );
 		$this->values[ $module_id ] = $values;
@@ -180,7 +194,7 @@ final class SettingsRegistry implements SettingsReader, SettingsWriter {
 			if ( $this->get( (string) $key ) !== $normalized ) {
 				$changed[] = (string) $key;
 			}
-			$values[ $key ] = $normalized;
+			$values[ $key ] = $this->sealed( $definition, $normalized );
 		}
 		if ( array() !== $changed ) {
 			$this->store->save( $module_id, $values );
@@ -219,6 +233,17 @@ final class SettingsRegistry implements SettingsReader, SettingsWriter {
 		}
 
 		return $this->definitions[ $key ];
+	}
+
+	/**
+	 * A value as it's stored: sealed when the setting is secret, except an empty secret, which clears it.
+	 *
+	 * @param SettingDefinition $definition Definition.
+	 * @param bool|int|string   $value      Valid value.
+	 * @throws DomainError When a secret can't be sealed because the site has no key.
+	 */
+	private function sealed( SettingDefinition $definition, bool|int|string $value ): bool|int|string {
+		return SettingType::Secret === $definition->type && '' !== $value ? $this->secrets->seal( (string) $value ) : $value;
 	}
 
 	/**

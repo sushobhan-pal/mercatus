@@ -97,11 +97,15 @@ final class StoreSlugNormalizer {
 	}
 
 	/**
-	 * Text in ASCII, through intl when it's there and iconv otherwise.
+	 * Text in ASCII, through intl when it's there and iconv otherwise; ASCII text as it is, since transliterating is
+	 * costly.
 	 *
 	 * @param string $text Text.
 	 */
 	private static function ascii( string $text ): string {
+		if ( 1 === preg_match( '/^[\x20-\x7E]*$/', $text ) ) {
+			return $text;
+		}
 		if ( function_exists( 'transliterator_transliterate' ) ) {
 			$ascii = transliterator_transliterate( 'Any-Latin; Latin-ASCII', $text );
 			if ( is_string( $ascii ) ) {

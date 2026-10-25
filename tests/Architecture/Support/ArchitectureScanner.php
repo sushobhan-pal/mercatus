@@ -134,6 +134,33 @@ final class ArchitectureScanner {
 	}
 
 	/**
+	 * HTTP calls that bypass the outbound allow-list (SEC-7, TM-31): only Infrastructure/Http/OutboundHttp.php
+	 * may make them.
+	 *
+	 * @param string $src_dir Source root to scan.
+	 * @return list<string>
+	 */
+	public function outboundCalls( string $src_dir ): array {
+		$violations = array();
+		foreach ( $this->parsedFiles( $src_dir ) as $path => $nodes ) {
+			if ( str_ends_with( str_replace( '\\', '/', $path ), 'Infrastructure/Http/OutboundHttp.php' ) ) {
+				continue;
+			}
+			foreach ( $this->finder->findInstanceOf( $nodes, Node\Expr\FuncCall::class ) as $call ) {
+				if ( ! $call->name instanceof Node\Name ) {
+					continue;
+				}
+				$function = $call->name->toLowerString();
+				if ( 1 === preg_match( '/^(wp_remote_|wp_safe_remote_|curl_)/', $function ) || in_array( $function, array( 'fsockopen', 'stream_socket_client' ), true ) ) {
+					$violations[] = $this->format( $src_dir, $path, $call, 'calls ' . $function . '() outside OutboundHttp' );
+				}
+			}
+		}
+
+		return $violations;
+	}
+
+	/**
 	 * Command handlers and policies without a matching *Test.php file (TEST-1, Layer 1).
 	 *
 	 * @param string $src_dir   Source root to scan.

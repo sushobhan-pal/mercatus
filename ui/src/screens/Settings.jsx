@@ -215,6 +215,17 @@ function Field( { setting, value, onChange } ) {
 					onChange={ onChange }
 				/>
 			);
+		case 'secret':
+			return (
+				<TextControl
+					{ ...common }
+					__next40pxDefaultSize
+					type="password"
+					autoComplete="new-password"
+					value={ value }
+					onChange={ onChange }
+				/>
+			);
 		case 'textarea':
 			return (
 				<TextareaControl

@@ -14,9 +14,10 @@ use Mercatus\Core\Vendor\Infrastructure\VendorStore;
 use WP_User;
 
 /**
- * The store's contact details and address join WordPress's Export and Erase Personal Data tools. An open store
- * keeps them when erased, because buyers and orders rely on them; a closed store's are cleared. The store page
- * and its rewrite rules arrive with increment 2.
+ * The store page and store list (STO-10): rewrite rules, the template inside the theme, the blocks, and the
+ * store list page created on the first wp-admin load. The store's contact details and address join WordPress's
+ * Export and Erase Personal Data tools: an open store keeps them when erased, because buyers and orders rely on
+ * them; a closed store's are cleared.
  */
 final class StoreHooks implements ModuleHooks {
 
@@ -27,12 +28,34 @@ final class StoreHooks implements ModuleHooks {
 	 *
 	 * @param Stores      $stores  Store commands.
 	 * @param VendorStore $vendors Vendors, to find a user's.
+	 * @param StorePage   $page    The store page and store list page.
+	 * @param StoreBlocks $blocks  The storefront's blocks.
+	 * @param StoreUrls   $urls    Store page addresses.
 	 */
-	public function __construct( private Stores $stores, private VendorStore $vendors ) {}
+	public function __construct( private Stores $stores, private VendorStore $vendors, private StorePage $page, private StoreBlocks $blocks, private StoreUrls $urls ) {}
 
 	public function register(): void {
 		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'exporters' ) );
 		add_filter( 'wp_privacy_personal_data_erasers', array( $this, 'erasers' ) );
+		add_action( 'init', array( $this->page, 'rewrites' ) );
+		add_action( 'init', array( $this->blocks, 'register' ) );
+		add_filter( 'query_vars', array( $this->page, 'queryVars' ) );
+		add_action( 'parse_query', array( $this->page, 'parseQuery' ) );
+		add_filter( 'posts_pre_query', array( $this->page, 'skipPosts' ), 10, 2 );
+		add_filter( 'pre_handle_404', array( $this->page, 'handle404' ), 10, 2 );
+		add_action( 'template_redirect', array( $this->page, 'redirect' ) );
+		add_filter( 'template_include', array( $this->page, 'template' ), 99 );
+		add_filter( 'document_title_parts', array( $this->page, 'title' ) );
+		add_filter( 'body_class', array( $this->page, 'bodyClass' ) );
+		add_action( 'admin_init', array( $this, 'adminInit' ) );
+	}
+
+	/**
+	 * Creates the store list page once, and registers the store page's base for translation (STO-16).
+	 */
+	public function adminInit(): void {
+		$this->page->ensureListPage();
+		$this->urls->registerStrings();
 	}
 
 	/**

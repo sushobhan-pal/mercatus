@@ -72,7 +72,8 @@ final readonly class SettingDefinition {
 		$valid = match ( $this->type ) {
 			SettingType::Boolean => is_bool( $value ),
 			SettingType::Integer => is_int( $value ) && ( null === $this->minimum || $value >= $this->minimum ) && ( null === $this->maximum || $value <= $this->maximum ),
-			SettingType::Text    => is_string( $value ),
+			SettingType::Text,
+			SettingType::Secret  => is_string( $value ),
 			SettingType::Choice  => is_string( $value ) && in_array( $value, $this->choices, true ),
 			SettingType::Decimal => is_string( $value ) && 1 === preg_match( self::DECIMAL_PATTERN, $value ),
 		};

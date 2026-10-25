@@ -12,10 +12,12 @@ namespace Mercatus\Core\Store\Infrastructure;
 use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
+use Mercatus\Core\Contracts\Location\Geocoder;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Shared\Audit\AuditLog;
 use Mercatus\Core\Shared\Clock\Clock;
 use Mercatus\Core\Shared\Errors\DomainError;
+use Mercatus\Core\Shared\Events\EventLane;
 use Mercatus\Core\Shared\Events\EventPublisher;
 use Mercatus\Core\Shared\Http\ListRequest;
 use Mercatus\Core\Shared\Persistence\TransactionRunner;
@@ -24,6 +26,7 @@ use Mercatus\Core\Store\Application\StoreDirectory;
 use Mercatus\Core\Store\Application\StorePolicy;
 use Mercatus\Core\Store\Application\StoreSerializer;
 use Mercatus\Core\Store\Application\StoreSettings;
+use Mercatus\Core\Store\Domain\Geohash;
 use Mercatus\Core\Store\Domain\Location;
 use Mercatus\Core\Store\Domain\Store;
 use Mercatus\Core\Store\Domain\StoreProfile;
@@ -42,9 +45,9 @@ final class Stores implements StoreDirectory {
 	private const TTL = 3600;
 
 	/**
-	 * The rich-text allow-list for descriptions (STO-5).
+	 * The rich-text allow-list for descriptions (STO-5), applied on save and again on output.
 	 */
-	private const RICH_TEXT = array(
+	public const RICH_TEXT = array(
 		'p'      => array(),
 		'br'     => array(),
 		'strong' => array(),
@@ -82,6 +85,7 @@ final class Stores implements StoreDirectory {
 	 * @param SettingsReader     $settings     Settings.
 	 * @param Clock              $clock        Clock.
 	 * @param CachePort          $cache        Cache.
+	 * @param StoreUrls          $urls         Store page addresses.
 	 */
 	public function __construct(
 		private StoreRepository $stores,
@@ -94,6 +98,7 @@ final class Stores implements StoreDirectory {
 		private SettingsReader $settings,
 		private Clock $clock,
 		private CachePort $cache,
+		private StoreUrls $urls,
 	) {}
 
 	/**
@@ -197,7 +202,7 @@ final class Stores implements StoreDirectory {
 			)
 		);
 
-		return array_map( static fn( array $pair ): array => self::listRow( $pair, StoreSerializer::public( ...$pair ) ), $this->stores->page( $public, $search ) );
+		return array_map( fn( array $pair ): array => self::listRow( $pair, $this->publicView( $pair ) ), $this->stores->page( $public, $search ) );
 	}
 
 	public function all( ListRequest $request, string $search ): array {
@@ -208,7 +213,7 @@ final class Stores implements StoreDirectory {
 		$rows = array();
 		foreach ( $this->stores->page( $request, $search ) as $pair ) {
 			if ( AccessDecision::Allowed === $this->policy->decide( $actor, StorePolicy::MANAGE, $pair[0] ) ) {
-				$rows[] = self::listRow( $pair, StoreSerializer::full( ...$pair ) );
+				$rows[] = self::listRow( $pair, $this->fullView( $pair ) );
 			}
 		}
 
@@ -222,7 +227,7 @@ final class Stores implements StoreDirectory {
 		}
 
 		return array(
-			'store'   => StoreSerializer::public( ...$pair ),
+			'store'   => $this->publicView( $pair ),
 			'version' => $pair[0]->version,
 			'listed'  => $pair[0]->isListed(),
 		);
@@ -238,11 +243,11 @@ final class Stores implements StoreDirectory {
 			throw DomainError::of( 'mercatus_store_context_not_allowed' );
 		}
 
-		return self::full( $pair );
+		return $this->full( $pair );
 	}
 
 	public function mine(): array {
-		return self::full( $this->own() );
+		return $this->full( $this->own() );
 	}
 
 	public function updateMine( array $changes, int $expected ): array {
@@ -258,6 +263,31 @@ final class Stores implements StoreDirectory {
 		$pair = $id > 0 ? $this->cached( $id ) : null;
 
 		return null === $pair ? null : StoreSerializer::summary( $pair[0] );
+	}
+
+	/**
+	 * Geocodes a location's current address and records the coordinates, unless the address changed while the
+	 * provider was asked (STO-14). Never throws for a provider's failure.
+	 *
+	 * @param int      $location_id Location ID.
+	 * @param Geocoder $geocoder    The chosen geocoder.
+	 * @return bool Whether coordinates were recorded.
+	 */
+	public function geocode( int $location_id, Geocoder $geocoder ): bool {
+		$location = $this->locations->byId( $location_id );
+		if ( null === $location || '' === implode( '', $location->address ) ) {
+			return false;
+		}
+		$point = $geocoder->geocode( $location->address );
+		if ( null === $point || ! $this->locations->setCoordinates( $location->id, $location->version, $point->latitude, $point->longitude, Geohash::encode( $point->latitude, $point->longitude ), $this->clock->now() ) ) {
+			return false;
+		}
+		$pair = $this->stores->byVendorId( $location->vendorId );
+		if ( null !== $pair ) {
+			$this->changed( $pair[0]->id );
+		}
+
+		return true;
 	}
 
 	/**
@@ -300,7 +330,7 @@ final class Stores implements StoreDirectory {
 	public function export( int $vendor_id ): ?array {
 		$pair = $this->stores->byVendorId( $vendor_id );
 
-		return null === $pair ? null : StoreSerializer::full( ...$pair );
+		return null === $pair ? null : $this->fullView( $pair );
 	}
 
 	/**
@@ -345,6 +375,7 @@ final class Stores implements StoreDirectory {
 				if ( array() !== $address ) {
 					$location_id = $location->id ?? $this->locations->insertDefault( $store->vendorId, $now );
 					$this->locations->updateAddress( $location_id, $address, $now );
+					// On the bulk lane: geocoding calls a provider, which never holds up the save (STO-14).
 					$this->events->publish(
 						'store.location.updated',
 						'location',
@@ -354,7 +385,10 @@ final class Stores implements StoreDirectory {
 							'location_id' => $location_id,
 							'vendor_id'   => $store->vendorId,
 							'fields'      => array_keys( $address ),
-						)
+						),
+						1,
+						EventLane::Bulk,
+						'location:' . $location_id
 					);
 					$this->audit->record( 'location.updated', 'location', $location_id, array( 'fields' => implode( ',', array_keys( $address ) ) ) );
 				}
@@ -392,7 +426,7 @@ final class Stores implements StoreDirectory {
 			$this->cache->bumpRevision( self::slugScope( (string) $valid['slug'] ) );
 		}
 
-		return self::full( $this->cached( $store->id ) ?? $pair );
+		return $this->full( $this->cached( $store->id ) ?? $pair );
 	}
 
 	/**
@@ -575,11 +609,31 @@ final class Stores implements StoreDirectory {
 	 * @param array{0: Store, 1: Location|null} $pair The store.
 	 * @return array{store: array<string, mixed>, version: int}
 	 */
-	private static function full( array $pair ): array {
+	private function full( array $pair ): array {
 		return array(
-			'store'   => StoreSerializer::full( ...$pair ),
+			'store'   => $this->fullView( $pair ),
 			'version' => $pair[0]->version,
 		);
+	}
+
+	/**
+	 * A store as the public sees it, with its page's address.
+	 *
+	 * @param array{0: Store, 1: Location|null} $pair The store.
+	 * @return array<string, mixed>
+	 */
+	private function publicView( array $pair ): array {
+		return StoreSerializer::public( ...$pair ) + array( 'url' => $this->urls->url( $pair[0]->slug ) );
+	}
+
+	/**
+	 * Every field of a store, with its page's address.
+	 *
+	 * @param array{0: Store, 1: Location|null} $pair The store.
+	 * @return array<string, mixed>
+	 */
+	private function fullView( array $pair ): array {
+		return StoreSerializer::full( ...$pair ) + array( 'url' => $this->urls->url( $pair[0]->slug ) );
 	}
 
 	/**

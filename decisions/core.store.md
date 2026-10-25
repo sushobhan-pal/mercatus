@@ -220,6 +220,39 @@ Routes follow API-1 through the route pipeline (IDN-21).
     - Also `StoreCreatedOnApprovalTest`, `StoreFollowsVendorStatusTest`, `StoreEndpointContractTest`, `MeStoreSectionTest`, `StorePersonalDataTest`, `GeohashTest` and `StoreSeedStepTest`.
   - **Not yet:** the store page, the store list, the dashboard's Store screen and menu item, geocoding with `OutboundRequestAllowListTest`, and multilingual support arrive with increment 2.
 
+- **STO-18 Store page and settings (increment 2).**
+  - **The store page (STO-10):**
+    - One rewrite rule per base, in every language, flushed once whenever the bases change (option `mercatus_store_rewrites`).
+    - A store request skips WordPress's posts query and 404 handling; Mercatus looks the store up and makes the request a 404 itself when the visitor can't see it.
+    - A block theme renders through WordPress's own template canvas, with the theme's `mercatus-store` template when it has one; a classic theme gets `mercatus/store.php` from the theme, or Mercatus's, between its header and footer.
+    - An owner's or administrator's preview of a store the public can't see is never cached (`DONOTCACHEPAGE`, `nocache_headers()`) or indexed (`wp_robots`).
+  - **Blocks:** `mercatus/store-header`, `mercatus/store-about` and `mercatus/stores`, rendered on the server and escaped on output, with the description passing the rich-text allow-list again (STO-5).
+    - The Stores block reads its search and next page from the query string.
+    - A second build entry (`build/blocks.js`, from `webpack.config.js`) registers them in the editor: the Stores block previews itself, and the store page's blocks show what they're for.
+  - **Store list page:** created on the first wp-admin load with the Stores block, and recorded in `core.store.store_list_page`, as the dashboard page is.
+  - **Addresses:** every store the API returns carries its page's `url`. `StoreUrls` builds it apart from the page, so the API and the page don't depend on each other.
+  - **Dashboard (ARCH-13):** a Store screen for vendors (open the store, profile, address, policies, a link to view or preview it) and a Stores screen for administrators and managers holding `stores.manage` (filter by status and visibility, then edit any store through `context=edit` and `PATCH /stores/{store}`). Both save only the fields that changed, with `If-Match`.
+  - **Secret settings (SEC-6):**
+    - The settings registry gains a `secret` type: sealed with `sodium_crypto_secretbox` under `MERCATUS_ENCRYPTION_KEY` (`SecretBox`, values prefixed with their key version) and opened only inside PHP.
+    - `GET /settings/{module}` shows a stored secret as `********`, and an empty value clears it.
+    - Without the key, saving a secret is refused with a message saying how to add one.
+    - The Google Geocoding key is the first secret setting.
+  - **Outbound allow-list (STO-8, TM-31):** `OutboundHttp` is the only way Mercatus calls another host.
+    - It allows only HTTPS to hosts a module allowed, on the default port, without credentials, where every resolved address is public; it follows no redirects and times out after 5 seconds.
+    - An architecture rule refuses `wp_remote_*`, `wp_safe_remote_*`, `curl_*` and raw sockets anywhere else.
+    - §5's `pre_http_request` hook turned out unnecessary: with every Mercatus call going through `OutboundHttp` and the architecture rule, a site-wide hook would only reach other plugins' requests.
+  - **Geocoding (STO-14):**
+    - `Contracts\Location\Geocoder` and `Coordinates`, with the Nominatim and Google adapters, selected by `core.store.geocoder`.
+    - `store.location.updated` now goes on the bulk lane, coalesced per location, so the poller calls the provider and saving an address never waits for it.
+    - Coordinates are recorded only if the address hasn't changed again meanwhile (the location's version), and a failure records nothing.
+  - **Multilingual (STO-16):** the base registers with WPML's and Polylang's string translation; the rewrite rules cover its translation in every active language, and addresses use the visitor's.
+  - **Tests:** `OutboundRequestAllowListTest` (TM-31), `GeocoderAdapterTest`, `StorePageTest` (including a block theme), `MultilingualStorePageTest`, `SecretBoxTest`, the secret case in `SettingsEndpointTest`, the outbound architecture rule, Vitest for the Store screen and form, and the end-to-end `store.spec.js`.
+  - **Found by the scale gate:**
+    - The seeded dump kept the store step's 2,000 bulk `store.location.updated` events, so the idle-poll scenario wasn't idle. The seeder now drains the outbox after its steps, as a site whose poller keeps up would have it.
+    - Building each store's `url` transliterated the base every time, which took a page of the store list from about 0.7 to 7 ms. ASCII text now skips transliteration, and `StoreUrls` remembers cleaned bases for the request.
+  - **Ceilings,** unchanged with the `url` field, with and without a persistent cache: a store page 0 warm and 1 cold, a page of `GET /stores` 1, a vendor's `/me` 0.
+  - **Verified:** the end-to-end specs pass on the latest versions and on WordPress 6.6 with WooCommerce 9.2.
+
 ## 11. Open questions
 None. All eight were answered on 2026-10-24 and are recorded as STO-9 to STO-16.
 

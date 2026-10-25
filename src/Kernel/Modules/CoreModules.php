@@ -26,12 +26,14 @@ use Mercatus\Core\Kernel\KernelMigrations;
 use Mercatus\Core\Kernel\KernelPermissions;
 use Mercatus\Core\Kernel\KernelSettings;
 use Mercatus\Core\Kernel\KernelSettingsForm;
+use Mercatus\Core\Store\Api\StoreMenu;
 use Mercatus\Core\Store\Api\StoreMeSection;
 use Mercatus\Core\Store\Api\StorePermissions;
 use Mercatus\Core\Store\Api\StoreRoutes;
 use Mercatus\Core\Store\Api\StoreSettingsForm;
 use Mercatus\Core\Store\Application\StoreSettings;
 use Mercatus\Core\Store\Infrastructure\StoreEventSubscriber;
+use Mercatus\Core\Store\Infrastructure\StoreGeocodingSubscriber;
 use Mercatus\Core\Store\Infrastructure\StoreHooks;
 use Mercatus\Core\Store\Infrastructure\StoreMigrations;
 use Mercatus\Core\Vendor\Api\VendorMenu;
@@ -101,10 +103,11 @@ final class CoreModules {
 					routes: StoreRoutes::class,
 					migrations: StoreMigrations::class,
 					permissions: StorePermissions::class,
+					dashboardMenu: StoreMenu::class,
 					settings: StoreSettings::class,
 					hooks: StoreHooks::class,
 					meSections: array( StoreMeSection::class ),
-					eventSubscribers: array( StoreEventSubscriber::class ),
+					eventSubscribers: array( StoreEventSubscriber::class, StoreGeocodingSubscriber::class ),
 					settingsForm: StoreSettingsForm::class,
 				),
 				false,

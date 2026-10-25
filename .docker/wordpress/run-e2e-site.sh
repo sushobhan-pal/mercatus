@@ -41,8 +41,8 @@ wp mercatus migrate
 wp transient delete _wc_activation_redirect >/dev/null 2>&1 || true
 # Visitors choose their own password when they apply (VEN-12).
 wp option update woocommerce_registration_generate_password no
-# What the first wp-admin visit after activation does: create the dashboard page (VEN-15).
-wp --user=admin eval '\Mercatus\Core\Kernel\Kernel::instance()?->container()->get( \Mercatus\Core\Vendor\Infrastructure\DashboardPage::class )->ensure();'
+# What the first wp-admin visit after activation does: create the dashboard page (VEN-15) and the store list page (STO-10).
+wp --user=admin eval '\Mercatus\Core\Kernel\Kernel::instance()?->container()->get( \Mercatus\Core\Vendor\Infrastructure\DashboardPage::class )->ensure(); \Mercatus\Core\Kernel\Kernel::instance()?->container()->get( \Mercatus\Core\Store\Infrastructure\StorePage::class )->ensureListPage();'
 
 # Apache writes uploads and WooCommerce's logs, which a failed spec's server errors end up in.
 mkdir -p "$site/wp-content/uploads"

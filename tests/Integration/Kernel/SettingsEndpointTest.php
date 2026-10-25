@@ -12,6 +12,7 @@ namespace Mercatus\Core\Tests\Integration\Kernel;
 use Mercatus\Core\Identity\Application\IdentitySettings;
 use Mercatus\Core\Shared\Events\DomainEvent;
 use Mercatus\Core\Tests\Integration\Vendor\VendorTestHelpers;
+use Mercatus\Core\Store\Application\StoreSettings;
 use Mercatus\Core\Vendor\Application\VendorAccess;
 use Mercatus\Core\Vendor\Application\VendorSettings;
 use WP_REST_Request;
@@ -43,6 +44,7 @@ final class SettingsEndpointTest extends WP_UnitTestCase {
 	public function tear_down(): void {
 		remove_action( 'mercatus_event', array( $this, 'onEvent' ) );
 		self::kernel()->settings()->set( VendorSettings::AUTO_APPROVE, false );
+		self::kernel()->settings()->set( StoreSettings::GOOGLE_GEOCODING_KEY, '' );
 		self::grantManagers( array() );
 		parent::tear_down();
 	}
@@ -102,6 +104,20 @@ final class SettingsEndpointTest extends WP_UnitTestCase {
 		$this->assertSame( 'mercatus_setting_unknown', $this->data( $this->call( 'PATCH', '/settings/core.vendor', array( 'values' => array( IdentitySettings::MANAGER_PERMISSIONS => '' ) ), $etag ), 422 )['code'] );
 		$this->assertFalse( self::kernel()->settings()->bool( VendorSettings::AUTO_APPROVE ) );
 		$this->assertSame( array(), $this->events );
+	}
+
+	public function testASecretIsStoredSealedAndNeverReturned(): void {
+		$etag = (string) $this->call( 'GET', '/settings/core.store' )->get_headers()['ETag'];
+
+		$fields = array_column( $this->data( $this->call( 'PATCH', '/settings/core.store', array( 'values' => array( StoreSettings::GOOGLE_GEOCODING_KEY => 'AIza-test-only' ) ), $etag ), 200 )['settings'], null, 'key' );
+
+		$this->assertSame( array( 'secret', '********' ), array( $fields[ StoreSettings::GOOGLE_GEOCODING_KEY ]['widget'], $fields[ StoreSettings::GOOGLE_GEOCODING_KEY ]['value'] ) );
+		$this->assertSame( 'AIza-test-only', self::kernel()->settings()->string( StoreSettings::GOOGLE_GEOCODING_KEY ) );
+		$this->assertStringNotContainsString( 'AIza-test-only', (string) wp_json_encode( get_option( 'mercatus_settings_core_store' ) ) );
+
+		$etag = (string) $this->call( 'GET', '/settings/core.store' )->get_headers()['ETag'];
+		$this->data( $this->call( 'PATCH', '/settings/core.store', array( 'values' => array( StoreSettings::GOOGLE_GEOCODING_KEY => '' ) ), $etag ), 200 );
+		$this->assertSame( '', self::kernel()->settings()->string( StoreSettings::GOOGLE_GEOCODING_KEY ), 'An empty value clears it.' );
 	}
 
 	public function testOnlyAdministratorsReadOrChangeSettings(): void {

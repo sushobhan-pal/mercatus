@@ -369,6 +369,10 @@ final class StoreRoutes implements RouteProvider {
 					)
 				),
 				'created_at'  => array( 'type' => 'string' ),
+				'url'         => array(
+					'type'   => 'string',
+					'format' => 'uri',
+				),
 			)
 		);
 	}
@@ -410,6 +414,10 @@ final class StoreRoutes implements RouteProvider {
 				'coordinates'   => array(
 					'type'        => array( 'object', 'null' ),
 					'description' => 'latitude, longitude and geo_cell, once geocoded.',
+				),
+				'url'           => array(
+					'type'   => 'string',
+					'format' => 'uri',
 				),
 				'created_at'    => array( 'type' => 'string' ),
 				'updated_at'    => array( 'type' => 'string' ),

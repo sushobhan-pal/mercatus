@@ -22,6 +22,8 @@ function mercatus_tests_env( string $name, string $fallback ): string {
 define( 'ABSPATH', '/usr/src/wordpress/' );
 define( 'WP_DEFAULT_THEME', 'default' );
 define( 'WP_DEBUG', true );
+// A test-only key for secret settings (SEC-6); never used outside the test suite.
+define( 'MERCATUS_ENCRYPTION_KEY', 'dfpvnjHPhRypxuPxgj0biTudRaPew6klyIwthJxO7lc=' );
 
 define( 'DB_NAME', mercatus_tests_env( 'DB_NAME', 'wordpress_test' ) );
 define( 'DB_USER', mercatus_tests_env( 'DB_USER', 'wp' ) );
