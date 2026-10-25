@@ -38,22 +38,23 @@ interface StoreDirectory {
 	public function all( ListRequest $request, string $search ): array;
 
 	/**
-	 * A store by slug: as the public sees it, and only when the actor may see it.
+	 * A store by slug or ID, as the public sees it, and only when the actor may see it.
 	 *
-	 * @param string $slug Slug.
+	 * @param string $store Slug, or ID in digits (a slug is never all digits, STO-9).
 	 * @return array{store: array<string, mixed>, version: int, listed: bool}
 	 * @throws DomainError When there's no such store for this actor (mercatus_store_unknown).
 	 */
-	public function bySlug( string $slug ): array;
+	public function public( string $store ): array;
 
 	/**
-	 * A store by ID, every field, for administrators and managers holding stores.manage.
+	 * A store by slug or ID, every field (`context=edit`), for its owner, administrators and managers holding
+	 * stores.manage.
 	 *
-	 * @param int $id Store ID.
+	 * @param string $store Slug or ID.
 	 * @return array{store: array<string, mixed>, version: int}
-	 * @throws DomainError When there's no such store for this actor.
+	 * @throws DomainError When there's no such store for this actor, or the actor may not edit it.
 	 */
-	public function byId( int $id ): array;
+	public function edit( string $store ): array;
 
 	/**
 	 * The current vendor's own store, every field.
@@ -76,13 +77,13 @@ interface StoreDirectory {
 	/**
 	 * Changes any store, for administrators and managers holding stores.manage.
 	 *
-	 * @param int                  $id       Store ID.
+	 * @param string               $store    Slug or ID.
 	 * @param array<string, mixed> $changes  Fields to change (StoreProfile::FIELDS).
 	 * @param int                  $expected Version the change was based on.
 	 * @return array{store: array<string, mixed>, version: int}
 	 * @throws DomainError As updateMine(), or when the actor may not manage the store.
 	 */
-	public function update( int $id, array $changes, int $expected ): array;
+	public function update( string $store, array $changes, int $expected ): array;
 
 	/**
 	 * What /me says about a vendor's store, or null before it exists.

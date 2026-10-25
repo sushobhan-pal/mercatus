@@ -215,10 +215,10 @@ final class Stores implements StoreDirectory {
 		return $rows;
 	}
 
-	public function bySlug( string $slug ): array {
-		$pair = $this->cachedBySlug( $slug );
+	public function public( string $store ): array {
+		$pair = $this->resolve( $store );
 		if ( null === $pair || ( ! $pair[0]->isListed() && AccessDecision::Allowed !== $this->policy->decide( $this->actors->identity(), StorePolicy::VIEW, $pair[0] ) ) ) {
-			throw DomainError::of( 'mercatus_store_unknown', array( 'slug' => $slug ) );
+			throw DomainError::of( 'mercatus_store_unknown', array( 'store' => $store ) );
 		}
 
 		return array(
@@ -228,8 +228,15 @@ final class Stores implements StoreDirectory {
 		);
 	}
 
-	public function byId( int $id ): array {
-		$pair = $this->allowed( $this->cached( $id ), StorePolicy::MANAGE );
+	public function edit( string $store ): array {
+		$pair     = $this->resolve( $store );
+		$decision = null === $pair ? AccessDecision::NotFound : $this->policy->decide( $this->actors->identity(), StorePolicy::MANAGE, $pair[0] );
+		if ( null === $pair || AccessDecision::NotFound === $decision ) {
+			throw DomainError::of( 'mercatus_store_unknown', array( 'store' => $store ) );
+		}
+		if ( AccessDecision::Allowed !== $decision ) {
+			throw DomainError::of( 'mercatus_store_context_not_allowed' );
+		}
 
 		return self::full( $pair );
 	}
@@ -242,8 +249,8 @@ final class Stores implements StoreDirectory {
 		return $this->apply( $this->own(), $changes, $expected, true );
 	}
 
-	public function update( int $id, array $changes, int $expected ): array {
-		return $this->apply( $this->allowed( $this->cached( $id ), StorePolicy::MANAGE ), $changes, $expected, false );
+	public function update( string $store, array $changes, int $expected ): array {
+		return $this->apply( $this->allowed( $this->resolve( $store ), StorePolicy::MANAGE ), $changes, $expected, false );
 	}
 
 	public function summary( int $vendor_id ): ?array {
@@ -465,6 +472,16 @@ final class Stores implements StoreDirectory {
 		);
 
 		return self::unpack( $data );
+	}
+
+	/**
+	 * A store by ID in digits, or else by slug (STO-9: a slug is never all digits).
+	 *
+	 * @param string $store Slug or ID.
+	 * @return array{0: Store, 1: Location|null}|null
+	 */
+	private function resolve( string $store ): ?array {
+		return ctype_digit( $store ) ? $this->cached( (int) $store ) : $this->cachedBySlug( $store );
 	}
 
 	/**

@@ -80,7 +80,7 @@ final class StoreEndpointContractTest extends WP_UnitTestCase {
 		self::kernel()->settings()->set( StoreSettings::VENDORS_CHANGE_SLUG, false );
 		$admin = $this->userAs( 'administrator' );
 		wp_set_current_user( $admin );
-		$etag = $this->etag( $this->call( 'GET', '/stores/' . $vendor['store_id'] ) );
+		$etag = $this->etag( $this->call( 'GET', '/stores/' . $vendor['store_id'], array( 'context' => 'edit' ) ) );
 
 		$store = $this->data(
 			$this->call(
@@ -96,6 +96,15 @@ final class StoreEndpointContractTest extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( array( 'renamed-by-admin', true ), array( $store['slug'], $store['listed'] ) );
+	}
+
+	public function testContextEditIsForTheOwnerAndStoreManagers(): void {
+		$vendor = $this->vendorWithStore();
+
+		$this->assertSame( 'hidden', $this->data( $this->call( 'GET', '/stores/' . $vendor['slug'], array( 'context' => 'edit' ) ), 200 )['visibility'], 'The owner.' );
+		self::grantManagers( array() );
+		wp_set_current_user( $this->userAs( 'marketplace_manager' ) );
+		$this->assertSame( 'mercatus_store_context_not_allowed', $this->data( $this->call( 'GET', '/stores/' . $vendor['store_id'], array( 'context' => 'edit' ) ), 403 )['code'] );
 	}
 
 	public function testAnUnknownFieldIsRefused(): void {

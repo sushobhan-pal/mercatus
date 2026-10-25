@@ -40,6 +40,6 @@ final class StoreFollowsVendorStatusTest extends WP_UnitTestCase {
 
 		wp_delete_user( $vendor['user_id'] );
 
-		$this->assertSame( 'closed', $this->data( $this->asAdministrator( 'GET', '/stores/' . $vendor['store_id'] ), 200 )['status'] );
+		$this->assertSame( 'closed', $this->data( $this->asAdministrator( 'GET', '/stores/' . $vendor['store_id'], array( 'context' => 'edit' ) ), 200 )['status'] );
 	}
 }

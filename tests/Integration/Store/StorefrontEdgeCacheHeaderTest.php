@@ -14,8 +14,8 @@ use WP_UnitTestCase;
 
 /**
  * The store list and a listed store send the public L3 headers and an ETag, and a known ETag gets 304. An
- * owner previewing their hidden store, an administrator's filtered list and /me/store are private, so a CDN
- * never serves them to someone else.
+ * owner previewing their hidden store, context=edit, an administrator's filtered list and /me/store are
+ * private, so a CDN never serves them to someone else.
  */
 final class StorefrontEdgeCacheHeaderTest extends WP_UnitTestCase {
 
@@ -43,6 +43,7 @@ final class StorefrontEdgeCacheHeaderTest extends WP_UnitTestCase {
 
 		$this->assertSame( 'private, no-cache', $this->call( 'GET', '/stores/' . $vendor['slug'] )->get_headers()['Cache-Control'] ?? null, 'The owner previewing their hidden store.' );
 		$this->assertSame( 'private, no-cache', $this->call( 'GET', '/me/store' )->get_headers()['Cache-Control'] ?? null );
+		$this->assertSame( 'private, no-cache', $this->call( 'GET', '/stores/' . $vendor['store_id'], array( 'context' => 'edit' ) )->get_headers()['Cache-Control'] ?? null, 'Every field, with context=edit.' );
 		$this->assertSame( 'private, no-cache', $this->asAdministrator( 'GET', '/stores', array( 'status' => 'active' ) )->get_headers()['Cache-Control'] ?? null );
 	}
 }

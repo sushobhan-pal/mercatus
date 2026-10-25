@@ -12,8 +12,9 @@ namespace Mercatus\Core\Tests\Integration\Store;
 use WP_UnitTestCase;
 
 /**
- * /me/store is always the caller's own; another vendor's hidden store is not found; the administrators'
- * /stores/{id} refuses vendors; and a change can't move a store to another vendor or set its status.
+ * /me/store is always the caller's own; another vendor's hidden store is not found, by slug or ID and with
+ * context=edit; the administrators' PATCH /stores/{store} refuses vendors; and a change can't move a store to
+ * another vendor or set its status.
  */
 final class StoreCrossTenantIsolationTest extends WP_UnitTestCase {
 
@@ -25,7 +26,8 @@ final class StoreCrossTenantIsolationTest extends WP_UnitTestCase {
 
 		$this->assertSame( $mine['store_id'], $this->data( $this->call( 'GET', '/me/store' ), 200 )['id'] );
 		$this->assertSame( 'mercatus_store_unknown', $this->data( $this->call( 'GET', '/stores/' . $other['slug'] ), 404 )['code'], 'Another vendor\'s hidden store is not found, not forbidden.' );
-		$this->data( $this->call( 'GET', '/stores/' . $other['store_id'] ), 403 );
+		$this->assertSame( 'mercatus_store_unknown', $this->data( $this->call( 'GET', '/stores/' . $other['store_id'] ), 404 )['code'], 'By ID too.' );
+		$this->assertSame( 'mercatus_store_unknown', $this->data( $this->call( 'GET', '/stores/' . $other['store_id'], array( 'context' => 'edit' ) ), 404 )['code'] );
 		$this->data( $this->call( 'PATCH', '/stores/' . $other['store_id'], array( 'name' => 'Mine now' ), '"v1"' ), 403 );
 	}
 
@@ -50,7 +52,7 @@ final class StoreCrossTenantIsolationTest extends WP_UnitTestCase {
 
 		$this->assertSame( array( 'Hand-drawn maps', 'active' ), array( $store['tagline'], $store['status'] ) );
 		$this->assertNotSame( $other['vendor_id'], $store['vendor_id'] );
-		$this->assertSame( 'Other Shop', $this->data( $this->asAdministrator( 'GET', '/stores/' . $other['store_id'] ), 200 )['name'] );
+		$this->assertSame( 'Other Shop', $this->data( $this->asAdministrator( 'GET', '/stores/' . $other['store_id'], array( 'context' => 'edit' ) ), 200 )['name'] );
 	}
 
 	public function testOnlyAdministratorsListHiddenStores(): void {

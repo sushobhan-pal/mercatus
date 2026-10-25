@@ -1698,20 +1698,30 @@ paths:
       security: []
       x-mercatus-access: public
       x-mercatus-resource: store
-  '/stores/{id}':
+  '/stores/{store}':
     get:
-      operationId: getStoresId
-      summary: 'A store, every field'
+      operationId: getStoresStore
+      summary: 'A store by slug or ID; every field with context=edit'
       tags:
         - stores
       parameters:
         -
-          name: id
+          name: store
           in: path
           required: true
           schema:
             type: string
-            pattern: ^\d+$
+            pattern: '^[a-z0-9-]+$'
+        -
+          name: context
+          in: query
+          required: false
+          description: "edit returns every field, to the store's owner, administrators and managers holding stores.manage."
+          schema:
+            type: string
+            enum:
+              - view
+              - edit
       responses:
         2XX:
           description: Success.
@@ -1721,8 +1731,6 @@ paths:
                 type: object
                 properties:
                   id:
-                    type: integer
-                  vendor_id:
                     type: integer
                   slug:
                     type: string
@@ -1740,14 +1748,9 @@ paths:
                     type:
                       - integer
                       - 'null'
-                  contact_email:
-                    type: string
-                  contact_phone:
-                    type: string
-                  show_email:
-                    type: boolean
-                  show_phone:
-                    type: boolean
+                  contact:
+                    description: 'The contact details the vendor shows: email, phone. In the public view only.'
+                    type: object
                   policies:
                     type: object
                     properties:
@@ -1761,69 +1764,86 @@ paths:
                       - shipping
                       - returns
                       - privacy
+                  location:
+                    description: 'In the public view only.'
+                    type: object
+                    properties:
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                    required:
+                      - city
+                      - state
+                      - country
+                  created_at:
+                    type: string
+                  vendor_id:
+                    description: 'With context=edit, and after a change.'
+                    type: integer
+                  contact_email:
+                    description: 'With context=edit, and after a change.'
+                    type: string
+                  contact_phone:
+                    description: 'With context=edit, and after a change.'
+                    type: string
+                  show_email:
+                    description: 'With context=edit, and after a change.'
+                    type: boolean
+                  show_phone:
+                    description: 'With context=edit, and after a change.'
+                    type: boolean
                   visibility:
+                    description: 'With context=edit, and after a change.'
                     type: string
                     enum:
                       - public
                       - hidden
                   status:
+                    description: 'With context=edit, and after a change.'
                     type: string
                     enum:
                       - active
                       - suspended
                       - closed
                   listed:
+                    description: 'With context=edit, and after a change.'
                     type: boolean
                   address:
+                    description: "The default location's address. With context=edit, and after a change."
                     type: object
-                    description: "The default location's address."
                   coordinates:
+                    description: 'latitude, longitude and geo_cell, once geocoded. With context=edit, and after a change.'
                     type:
                       - object
                       - 'null'
-                    description: 'latitude, longitude and geo_cell, once geocoded.'
-                  created_at:
-                    type: string
                   updated_at:
+                    description: 'With context=edit, and after a change.'
                     type: string
                   version:
+                    description: 'With context=edit, and after a change.'
                     type: integer
                 required:
                   - id
-                  - vendor_id
                   - slug
                   - name
                   - tagline
                   - description
                   - logo_id
                   - banner_id
-                  - contact_email
-                  - contact_phone
-                  - show_email
-                  - show_phone
                   - policies
-                  - visibility
-                  - status
-                  - listed
-                  - address
-                  - coordinates
                   - created_at
-                  - updated_at
-                  - version
         4XX:
           $ref: '#/components/responses/Error'
         5XX:
           $ref: '#/components/responses/Error'
-      security:
-        -
-          cookieNonce: []
-        -
-          applicationPassword: []
-      x-mercatus-access: admin
-      x-mercatus-permission: stores.manage
+      security: []
+      x-mercatus-access: public
       x-mercatus-resource: store
     patch:
-      operationId: patchStoresId
+      operationId: patchStoresStore
       summary: 'Change a store'
       tags:
         - stores
@@ -1877,131 +1897,7 @@ paths:
                   maxLength: 5000
       parameters:
         -
-          name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            pattern: ^\d+$
-      responses:
-        2XX:
-          description: Success.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: integer
-                  vendor_id:
-                    type: integer
-                  slug:
-                    type: string
-                  name:
-                    type: string
-                  tagline:
-                    type: string
-                  description:
-                    type: string
-                  logo_id:
-                    type:
-                      - integer
-                      - 'null'
-                  banner_id:
-                    type:
-                      - integer
-                      - 'null'
-                  contact_email:
-                    type: string
-                  contact_phone:
-                    type: string
-                  show_email:
-                    type: boolean
-                  show_phone:
-                    type: boolean
-                  policies:
-                    type: object
-                    properties:
-                      shipping:
-                        type: string
-                      returns:
-                        type: string
-                      privacy:
-                        type: string
-                    required:
-                      - shipping
-                      - returns
-                      - privacy
-                  visibility:
-                    type: string
-                    enum:
-                      - public
-                      - hidden
-                  status:
-                    type: string
-                    enum:
-                      - active
-                      - suspended
-                      - closed
-                  listed:
-                    type: boolean
-                  address:
-                    type: object
-                    description: "The default location's address."
-                  coordinates:
-                    type:
-                      - object
-                      - 'null'
-                    description: 'latitude, longitude and geo_cell, once geocoded.'
-                  created_at:
-                    type: string
-                  updated_at:
-                    type: string
-                  version:
-                    type: integer
-                required:
-                  - id
-                  - vendor_id
-                  - slug
-                  - name
-                  - tagline
-                  - description
-                  - logo_id
-                  - banner_id
-                  - contact_email
-                  - contact_phone
-                  - show_email
-                  - show_phone
-                  - policies
-                  - visibility
-                  - status
-                  - listed
-                  - address
-                  - coordinates
-                  - created_at
-                  - updated_at
-                  - version
-        4XX:
-          $ref: '#/components/responses/Error'
-        5XX:
-          $ref: '#/components/responses/Error'
-      security:
-        -
-          cookieNonce: []
-        -
-          applicationPassword: []
-      x-mercatus-access: admin
-      x-mercatus-permission: stores.manage
-      x-mercatus-resource: store
-  '/stores/{slug}':
-    get:
-      operationId: getStoresSlug
-      summary: 'A store, as the public sees it'
-      tags:
-        - stores
-      parameters:
-        -
-          name: slug
+          name: store
           in: path
           required: true
           schema:
@@ -2034,8 +1930,8 @@ paths:
                       - integer
                       - 'null'
                   contact:
+                    description: 'The contact details the vendor shows: email, phone. In the public view only.'
                     type: object
-                    description: 'The contact details the vendor shows: email, phone.'
                   policies:
                     type: object
                     properties:
@@ -2050,6 +1946,7 @@ paths:
                       - returns
                       - privacy
                   location:
+                    description: 'In the public view only.'
                     type: object
                     properties:
                       city:
@@ -2064,6 +1961,51 @@ paths:
                       - country
                   created_at:
                     type: string
+                  vendor_id:
+                    description: 'With context=edit, and after a change.'
+                    type: integer
+                  contact_email:
+                    description: 'With context=edit, and after a change.'
+                    type: string
+                  contact_phone:
+                    description: 'With context=edit, and after a change.'
+                    type: string
+                  show_email:
+                    description: 'With context=edit, and after a change.'
+                    type: boolean
+                  show_phone:
+                    description: 'With context=edit, and after a change.'
+                    type: boolean
+                  visibility:
+                    description: 'With context=edit, and after a change.'
+                    type: string
+                    enum:
+                      - public
+                      - hidden
+                  status:
+                    description: 'With context=edit, and after a change.'
+                    type: string
+                    enum:
+                      - active
+                      - suspended
+                      - closed
+                  listed:
+                    description: 'With context=edit, and after a change.'
+                    type: boolean
+                  address:
+                    description: "The default location's address. With context=edit, and after a change."
+                    type: object
+                  coordinates:
+                    description: 'latitude, longitude and geo_cell, once geocoded. With context=edit, and after a change.'
+                    type:
+                      - object
+                      - 'null'
+                  updated_at:
+                    description: 'With context=edit, and after a change.'
+                    type: string
+                  version:
+                    description: 'With context=edit, and after a change.'
+                    type: integer
                 required:
                   - id
                   - slug
@@ -2072,16 +2014,19 @@ paths:
                   - description
                   - logo_id
                   - banner_id
-                  - contact
                   - policies
-                  - location
                   - created_at
         4XX:
           $ref: '#/components/responses/Error'
         5XX:
           $ref: '#/components/responses/Error'
-      security: []
-      x-mercatus-access: public
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: stores.manage
       x-mercatus-resource: store
   /system/cache/flush-group:
     post:

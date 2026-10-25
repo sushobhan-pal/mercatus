@@ -4,7 +4,7 @@
 **Phase / position:** Phase 2, module 4 in ROAD-3 (the last module of Phase 2)
 **Branch:** `core.store`
 **Depends on:** `core.vendor` (module 3)
-**Implements master rules:** ROAD-3 row 4, SCOPE-2 (one public storefront per vendor, profile, policies, visibility, store list, one default fulfilment location), SCOPE-3, ARCH-9 (a server-rendered store page), ARCH-13 (the vendor's store settings screen), API-2 (Stores), DATA-2 (`stores`, `fulfilment_locations`), CAT-1 (the default location), CAT-6 (geocoding and `geo_cell`), PLAT-3 (L2 group `mercatus_stores`, L3 public cache headers), PLAT-9, PLAT-10 (`GET /stores/{slug}`), PLAT-11, SEC-2 (`StorePolicy`, field-level visibility), SEC-4, SEC-7 (rich text, the outbound allow-list), TEST-3 row 5 (the store half), the ROAD-3 Phase 2 exit gate
+**Implements master rules:** ROAD-3 row 4, SCOPE-2 (one public storefront per vendor, profile, policies, visibility, store list, one default fulfilment location), SCOPE-3, ARCH-9 (a server-rendered store page), ARCH-13 (the vendor's store settings screen), API-2 (Stores), DATA-2 (`stores`, `fulfilment_locations`), CAT-1 (the default location), CAT-6 (geocoding and `geo_cell`), PLAT-3 (L2 group `mercatus_stores`, L3 public cache headers), PLAT-9, PLAT-10 (`GET /stores/{store}`), PLAT-11, SEC-2 (`StorePolicy`, field-level visibility), SEC-4, SEC-7 (rich text, the outbound allow-list), TEST-3 row 5 (the store half), the ROAD-3 Phase 2 exit gate
 
 Rules for this file (P-4, DRY-4): cite master IDs instead of restating them, never contradict the master document, and give each decision made here a local ID using the module's short code (for example `KER-1`). If this module needs a master rule changed, the master document changes first.
 
@@ -22,7 +22,7 @@ Local IDs use the code `STO`.
     - created with the store, and the only location in Free; location management stays hidden;
     - its address, geocoded on create and update only, with `latitude`, `longitude` and `geo_cell` (CAT-6, STO-14).
   - **The outbound allow-list (SEC-7, TM-31):** the one way Mercatus code calls another host, first used by geocoding (STO-8).
-  - **The Stores endpoints (API-2):** `GET /stores`, `GET /stores/{slug}`, `GET /me/store` and `PATCH /me/store`, plus the administrators' `GET` and `PATCH /stores/{id}` (STO-15).
+  - **The Stores endpoints (API-2):** `GET /stores`, `GET /stores/{store}` (a slug or an ID), `GET /me/store` and `PATCH /me/store`, plus `context=edit` and `PATCH /stores/{store}` for administrators (STO-15).
   - **The store summary in `/me`**, through the section seam core.vendor built (IDN-12).
   - **`StorePolicy`**, the second `ResourcePolicy` (IDN-14), and field-level visibility for contact details (SEC-2, TM-10).
   - **Vendor rich text** cleaned on save and escaped on output (SEC-7, TM-28).
@@ -72,16 +72,16 @@ Changed by an administrator only:
 Routes follow API-1 through the route pipeline (IDN-21).
 - **Public:**
   - `GET /stores`: active, public stores, with cursors and a name search. `Cache-Control: public, max-age=60, stale-while-revalidate=300` and a list ETag (PLAT-3, PLAT-9).
-  - `GET /stores/{slug}`: one active, public store, with the same headers and its version ETag. A hidden, suspended or closed store is 404 to the public; its owner, administrators and managers holding `stores.manage` still see it (SEC-4).
+  - `GET /stores/{store}`, where `{store}` is a slug or an ID: one active, public store, with the same headers and its version ETag. A hidden, suspended or closed store is 404 to the public; its owner, administrators and managers holding `stores.manage` still see it (SEC-4).
   - Contact details appear only when the vendor chose to show them (TM-10).
 - **The vendor (`tenant`):**
   - `GET /me/store`: the vendor's own store, every field.
   - `PATCH /me/store` (`If-Match`): the profile, visibility, slug (STO-9) and the default location's address. Fields such as `vendor_id`, `status` and `geo_cell` are never read from the body (SEC-3).
 - **Administrators, and managers holding `stores.manage` (STO-15):**
-  - `GET /stores/{id}`: any store, every field.
-  - `PATCH /stores/{id}` (`If-Match`): the vendor's fields plus visibility.
+  - `GET /stores/{store}?context=edit`: any store, every field, sent `private, no-cache`. The store's owner may use it too.
+  - `PATCH /stores/{store}` (`If-Match`): the vendor's fields plus visibility.
   - `GET /stores` takes a visibility and status filter for them, so hidden and suspended stores can be found.
-  - Master v2.10 added these to API-2.
+  - Master v2.10 added these to API-2, and v2.11 put them on the one `/stores/{store}` path.
 - **Idempotency:** nothing here changes money or stock, so no route requires `Idempotency-Key`; any `POST` accepts one (IDN-9).
 
 ## 5. Events and hooks
@@ -135,7 +135,7 @@ Routes follow API-1 through the route pipeline (IDN-21).
 ## 9. Scale
 - **Seeder slice:** `database/seeders/steps/core.store.php` fills in the 2,000 seeded vendors' profiles and default locations (KER-12).
 - **Target ceilings (Mercatus's own queries), fixed during implementation:**
-  - `GET /stores/{slug}`: 0 warm, at most 2 cold (PLAT-10).
+  - `GET /stores/{store}`: 0 warm, at most 2 cold (PLAT-10).
   - One page of `GET /stores`: 1 query, with no per-row queries or `COUNT`.
   - `GET /me` with the `store` section: 0 warm, as it is today.
   - Creating a store on approval: fixed, whatever the number of stores.
@@ -159,7 +159,7 @@ Routes follow API-1 through the route pipeline (IDN-21).
 - **STO-6 Contact details (SEC-2, TM-10).** Contact email and phone are private by default. Each has its own "show on my store page" flag, and the public serializer leaves them out unless it's on. The street address is never public; the store page shows the city, state and country.
 - **STO-7 Caching (PLAT-3, PLAT-5).**
   - Each store is cached in `mercatus_stores` under its own revision, which every change to the store or its location bumps.
-  - `GET /stores/{slug}` reads the slug-to-ID map and the store from the cache.
+  - `GET /stores/{store}` reads the slug-to-ID map and the store from the cache.
   - Public responses send the PLAT-3 L3 headers; the vendor's `/me/store` sends `private, no-cache`.
 - **STO-8 Outbound allow-list (SEC-7, TM-31).**
   - One infrastructure component wraps `wp_safe_remote_request()`. It allows only HTTPS to hosts on the list a module registers (the geocoder's, here), refuses private, loopback and link-local addresses after DNS resolution, and sets timeouts.
@@ -167,7 +167,7 @@ Routes follow API-1 through the route pipeline (IDN-21).
 
 - **STO-9 The slug (OQ-1).**
   - Made from the store name on approval: lower case, transliterated, hyphenated, with `-2`, `-3`… added when it's taken. Reserved words (such as `admin`, `dashboard`, `feed`, `page`, `store`) and the dashboard and store-list pages' slugs are refused.
-  - A slug is never all digits, so `/stores/{slug}` and the administrators' `/stores/{id}` (STO-15) can't be confused.
+  - A slug is never all digits, so `/stores/{store}` can take either a slug or an ID without ambiguity (STO-15).
   - Vendors may change it in their store settings; `core.store.vendors_change_slug` lets an administrator lock that.
   - The old address simply stops working: redirects for old slugs belong to Pro's advanced SEO, and need no slug history here.
 - **STO-10 The store page and the store list (OQ-2).**
@@ -186,7 +186,10 @@ Routes follow API-1 through the route pipeline (IDN-21).
   - Off until the administrator chooses one. Until then `latitude`, `longitude` and `geo_cell` stay empty, and nothing in this module depends on them.
   - A geocoding failure never blocks saving the address: the coordinates stay empty and a later save retries.
   - Requests go through the outbound allow-list (STO-8). Searching stores near a place arrives with location discovery in `core.catalog`.
-- **STO-15 Administrators' store endpoints (OQ-7).** `GET /stores/{id}` and `PATCH /stores/{id}`, for administrators and managers holding `stores.manage`, with the vendor's fields plus visibility, and a visibility and status filter on `GET /stores` for them. Master v2.10 added them to API-2.
+- **STO-15 Administrators' store endpoints (OQ-7).**
+  - Administrators, and managers holding `stores.manage`, read every field of any store with `GET /stores/{store}?context=edit`, change it with `PATCH /stores/{store}`, and find hidden and suspended stores with the visibility and status filters on `GET /stores`.
+  - `{store}` is a slug or an ID: one path serves the public and the administrators. Master v2.10 named a separate `/stores/{id}`, which OpenAPI treats as the same path as `/stores/{slug}`, so the generated file failed validation; master v2.11 replaced both with `/stores/{store}`. `context=edit` follows WordPress's own REST API.
+  - A store's owner may use `context=edit` too, since they see every field through `/me/store` anyway.
 - **STO-16 Store content in other languages (OQ-8, PLAT-11).**
   - The store page's own labels, the store list page and the base slug are translated: the page resolves to its translations, as the dashboard page does (VEN-15), and the base registers with the multilingual plugin's string translation.
   - The vendor's own text (name, tagline, description and policies) is shown as written, in one language per store. Vendors writing in several languages is a branded-storefront feature (Pro).
@@ -208,7 +211,7 @@ Routes follow API-1 through the route pipeline (IDN-21).
   - **No backfill:** Mercatus is unreleased, so vendors approved before core.store existed are only on development sites.
   - **Approval costs more:** creating the store runs in the approving request, so the vendor approval scenario's ceiling rises from 13 to 24 queries, still fixed whatever the number of vendors or stores (core.vendor's VEN-20 records the 13).
   - **Ceilings measured with and without a persistent cache:**
-    - `GET /stores/{slug}`: 0 warm, 1 cold (PLAT-10 allows 2).
+    - `GET /stores/{store}`: 0 warm, 1 cold (PLAT-10 allows 2).
     - One page of `GET /stores`: 1.
     - A vendor's `/me`, with the store section: 0 warm.
   - **Tests:**
@@ -222,9 +225,10 @@ None. All eight were answered on 2026-10-24 and are recorded as STO-9 to STO-16.
 
 ## 12. Done when
 - Master v2.10 is merged: the administrators' store endpoints in API-2 (STO-15) and store profiles in PLAT-11 (STO-16).
+- Master v2.11 is merged: one `/stores/{store}` path for slugs and IDs (STO-15).
 - TEST-3 row 5 passes in full with and without a persistent cache, including the IDOR and warm-cache zero-SQL tests: the ROAD-3 Phase 2 exit gate.
 - `VendorRichTextSanitizationTest` and `OutboundRequestAllowListTest` pass.
 - `openapi/mercatus-v1.yaml` includes this module's routes, and Redocly passes.
-- The scale gate has the store scenarios with their ceilings fixed, and `GET /stores/{slug}` meets PLAT-10.
+- The scale gate has the store scenarios with their ceilings fixed, and `GET /stores/{store}` meets PLAT-10.
 - The store page's end-to-end specs pass in CI.
 - No Section 2 guardrail is violated, and this file is marked Implemented.

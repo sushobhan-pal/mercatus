@@ -27,15 +27,14 @@ use WP_REST_Response;
 
 /**
  * The store list and store pages are public and edge-cacheable (PLAT-3 L3); a response that depends on who
- * asks (an administrator's filtered list, an owner previewing a hidden store) is marked private so a CDN never
- * serves it to someone else (TM-38). The vendor changes their own store through /me/store; administrators and
- * managers holding stores.manage change any through /stores/{id}.
+ * asks (an administrator's filtered list, an owner previewing a hidden store, `context=edit`) is marked private
+ * so a CDN never serves it to someone else (TM-38). `/stores/{store}` takes a slug or an ID, which a slug never
+ * looks like (STO-9). The vendor changes their own store through /me/store; administrators and managers holding
+ * stores.manage change any through `PATCH /stores/{store}` (STO-15).
  */
 final class StoreRoutes implements RouteProvider {
 
-	private const BY_ID = '/stores/(?P<id>\d+)';
-
-	private const BY_SLUG = '/stores/(?P<slug>[a-z0-9-]+)';
+	private const STORE = '/stores/(?P<store>[a-z0-9-]+)';
 
 	private const PRIVATE = 'private, no-cache';
 
@@ -50,16 +49,27 @@ final class StoreRoutes implements RouteProvider {
 		$public = static fn(): array => self::publicSchema();
 		$full   = static fn(): array => self::fullSchema();
 		$routes->add( '/stores', array( $this->endpoint( 'GET', 'index', Access::Open, null, 'List stores', self::listing()->args() + self::searchArg() ) ), $public );
-		// Before the slug route: a slug is never all digits (STO-9), so a number is always an ID.
 		$routes->add(
-			self::BY_ID,
+			self::STORE,
 			array(
-				$this->endpoint( 'GET', 'show', Access::Admin, StoreAccess::MANAGE, 'A store, every field' ),
+				$this->endpoint(
+					'GET',
+					'show',
+					Access::Open,
+					null,
+					'A store by slug or ID; every field with context=edit',
+					array(
+						'context' => array(
+							'type'        => 'string',
+							'enum'        => array( 'view', 'edit' ),
+							'description' => 'edit returns every field, to the store\'s owner, administrators and managers holding stores.manage.',
+						),
+					)
+				),
 				$this->endpoint( 'PATCH', 'update', Access::Admin, StoreAccess::MANAGE, 'Change a store', self::changeArgs() ),
 			),
-			$full
+			static fn(): array => self::eitherSchema()
 		);
-		$routes->add( self::BY_SLUG, array( $this->endpoint( 'GET', 'page', Access::Open, null, 'A store, as the public sees it' ) ), $public );
 		$routes->add(
 			'/me/store',
 			array(
@@ -93,14 +103,21 @@ final class StoreRoutes implements RouteProvider {
 	}
 
 	/**
-	 * GET /stores/{slug}.
+	 * GET /stores/{store}: the public view, or every field with context=edit.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 */
-	public function page( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+	public function show( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		return $this->guard(
 			function () use ( $request ): WP_REST_Response {
-				$result   = $this->stores->bySlug( (string) $request->get_param( 'slug' ) );
+				$store = (string) $request->get_param( 'store' );
+				if ( 'edit' === $request->get_param( 'context' ) ) {
+					$response = self::result( $this->stores->edit( $store ) );
+					$response->header( 'Cache-Control', self::PRIVATE );
+
+					return $response;
+				}
+				$result   = $this->stores->public( $store );
 				$response = self::item( $result['store'], $result['version'] );
 				if ( ! $result['listed'] ) {
 					$response->header( 'Cache-Control', self::PRIVATE );
@@ -112,21 +129,12 @@ final class StoreRoutes implements RouteProvider {
 	}
 
 	/**
-	 * GET /stores/{id}.
-	 *
-	 * @param WP_REST_Request $request Request.
-	 */
-	public function show( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		return $this->guard( fn(): WP_REST_Response => self::result( $this->stores->byId( (int) $request->get_param( 'id' ) ) ) );
-	}
-
-	/**
-	 * PATCH /stores/{id}: changes only the version If-Match names (PLAT-9).
+	 * PATCH /stores/{store}: changes only the version If-Match names (PLAT-9).
 	 *
 	 * @param WP_REST_Request $request Request.
 	 */
 	public function update( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		return $this->guard( fn(): WP_REST_Response => self::result( $this->stores->update( (int) $request->get_param( 'id' ), self::changes( $request ), self::expected( $request ) ) ) );
+		return $this->guard( fn(): WP_REST_Response => self::result( $this->stores->update( (string) $request->get_param( 'store' ), self::changes( $request ), self::expected( $request ) ) ) );
 	}
 
 	/**
@@ -157,13 +165,14 @@ final class StoreRoutes implements RouteProvider {
 			return ApiError::from(
 				$error,
 				array(
-					'mercatus_store_unknown'            => array( 404, __( 'There is no such store.', 'mercatus' ) ),
-					'mercatus_store_invalid'            => array( 422, __( 'Please check the highlighted field.', 'mercatus' ) ),
-					'mercatus_store_slug_invalid'       => array( 422, __( 'A store address uses 3 to 60 lower-case letters, digits and hyphens, isn’t only digits, and isn’t a reserved word.', 'mercatus' ) ),
-					'mercatus_store_slug_taken'         => array( 409, __( 'Another store already uses that address.', 'mercatus' ) ),
-					'mercatus_store_slug_locked'        => array( 403, __( 'The marketplace doesn’t let vendors change their store’s address.', 'mercatus' ) ),
-					'mercatus_store_filter_not_allowed' => array( 403, __( 'Only administrators can list hidden or suspended stores.', 'mercatus' ) ),
-					'mercatus_version_conflict'         => array( 409, __( 'Someone changed this in the meantime; reload and try again.', 'mercatus' ) ),
+					'mercatus_store_unknown'             => array( 404, __( 'There is no such store.', 'mercatus' ) ),
+					'mercatus_store_invalid'             => array( 422, __( 'Please check the highlighted field.', 'mercatus' ) ),
+					'mercatus_store_slug_invalid'        => array( 422, __( 'A store address uses 3 to 60 lower-case letters, digits and hyphens, isn’t only digits, and isn’t a reserved word.', 'mercatus' ) ),
+					'mercatus_store_slug_taken'          => array( 409, __( 'Another store already uses that address.', 'mercatus' ) ),
+					'mercatus_store_slug_locked'         => array( 403, __( 'The marketplace doesn’t let vendors change their store’s address.', 'mercatus' ) ),
+					'mercatus_store_filter_not_allowed'  => array( 403, __( 'Only administrators can list hidden or suspended stores.', 'mercatus' ) ),
+					'mercatus_store_context_not_allowed' => array( 403, __( 'You can’t see every field of this store.', 'mercatus' ) ),
+					'mercatus_version_conflict'          => array( 409, __( 'Someone changed this in the meantime; reload and try again.', 'mercatus' ) ),
 				)
 			);
 		}
@@ -305,6 +314,31 @@ final class StoreRoutes implements RouteProvider {
 				)
 			),
 		);
+	}
+
+	/**
+	 * Schema of /stores/{store}, which answers with the public view or, with context=edit and after a change,
+	 * every field: the fields both share are required, and each view's own are marked.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function eitherSchema(): array {
+		$public     = self::publicSchema()['properties'];
+		$full       = self::fullSchema()['properties'];
+		$properties = array();
+		foreach ( $public + $full as $name => $property ) {
+			if ( isset( $public[ $name ], $full[ $name ] ) ) {
+				$properties[ $name ] = $property;
+				continue;
+			}
+			$note                = isset( $public[ $name ] ) ? 'In the public view only.' : 'With context=edit, and after a change.';
+			$properties[ $name ] = array(
+				'required'    => false,
+				'description' => trim( ( is_string( $property['description'] ?? null ) ? $property['description'] . ' ' : '' ) . $note ),
+			) + $property;
+		}
+
+		return Schema::object( $properties );
 	}
 
 	/**
