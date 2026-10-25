@@ -33,9 +33,18 @@ final class SecretBox {
 	 * @param string|null $key Base64-encoded 32-byte key; MERCATUS_ENCRYPTION_KEY when omitted.
 	 */
 	public function __construct( ?string $key = null ) {
-		$key     ??= defined( 'MERCATUS_ENCRYPTION_KEY' ) && is_string( constant( 'MERCATUS_ENCRYPTION_KEY' ) ) ? constant( 'MERCATUS_ENCRYPTION_KEY' ) : null;
+		$key     ??= defined( 'MERCATUS_ENCRYPTION_KEY' ) ? self::text( constant( 'MERCATUS_ENCRYPTION_KEY' ) ) : null;
 		$raw       = null === $key ? false : base64_decode( $key, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- the key is base64 by definition.
 		$this->key = is_string( $raw ) && SODIUM_CRYPTO_SECRETBOX_KEYBYTES === strlen( $raw ) ? $raw : null;
+	}
+
+	/**
+	 * A configured value as text; wp-config.php may define the constant as anything.
+	 *
+	 * @param mixed $value Value.
+	 */
+	private static function text( mixed $value ): ?string {
+		return is_string( $value ) ? $value : null;
 	}
 
 	/**
