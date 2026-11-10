@@ -113,6 +113,27 @@ body.mercatus-dashboard-page {
 	border: 1px solid var(--mercatus-border);
 }
 
+.mercatus-categories {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+
+	li {
+		margin: 4px 0;
+	}
+}
+
+.mercatus-categories--nested {
+	padding-left: calc(var(--mercatus-gap) * 1.5);
+}
+
+.mercatus-attribute {
+	display: grid;
+	gap: 8px;
+	padding-bottom: var(--mercatus-gap);
+	border-bottom: 1px solid var(--mercatus-border);
+}
+
 .mercatus-question {
 	display: grid;
 	gap: 8px;

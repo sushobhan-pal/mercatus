@@ -407,6 +407,28 @@ Routes follow API-1 through the route pipeline (IDN-21). A product's `{id}` is i
   - **Lookups by SKU alone** (`wc_get_product_id_by_sku()`, which WooCommerce's CSV importer uses): Mercatus's answer to `woocommerce_get_product_id_by_sku` is the marketplace's own product if there is one, the only match if just one seller uses the SKU, and nothing if several vendors do. An administrator's import therefore never updates a vendor's product by accident.
   - Mercatus's own lookups always know the seller.
 
+- **CTL-27 Products, offers and inventory (increment 1).**
+  - **Code:** `src/Catalog/` (Domain, Application, Infrastructure, Api), with the seven tables' migrations in `database/migrations/core.catalog/`. The endpoints reach the commands through the Application port `CatalogDirectory`; `CatalogFields` re-exports the domain's limits (ARCH-2).
+  - **Shared kernel (DRY-2):**
+    - `Shared\Money\Decimal`: exact decimals held as a scaled integer, never a float; values stay below a trillion, so a sum of two stays in PHP's integer range.
+    - `Shared\Projection\ProjectionRunner` and its `Projector` contract: a rebuild writes only the rows that changed. Inside a command it leaves the revision to the caller, which bumps it after commit.
+    - Bulk-lane events may wait for a later time (`DomainEvent::$availableAt`, a new optional argument to `EventPublisher::publish()`); a critical event never waits. Scheduled sales use it (CTL-22).
+    - `Infrastructure\Content\RichText` holds SEC-7's one allow-list for store and product descriptions (CTL-2).
+  - **Write order (CTL-8):** creating and changing content writes WooCommerce first, and a creation that can't be recorded is deleted again at once. State actions and stock changes commit Mercatus first and then write WooCommerce's status or stock copy: there WooCommerce holds only a copy, so a failed write leaves nothing for the reconciler to adopt as an outside edit, only a copy to re-apply.
+  - **Projection rows:** every list reads them. Its indexes: `vendor_products` and `vendor_status_products` for a vendor's list, and `sku_vendor` (SKU first) for the SKU rule and lookups by SKU alone. The moderators' list reads `catalog_products` through a `(scope, status, id)` index and joins the product rows.
+  - **WooCommerce copies:** prices include the price active now (`set_price()`), so a sale's start or end also changes WooCommerce's own price when the delayed event arrives. Trashing uses WooCommerce's trash, so an administrator can restore the product.
+  - **Shared attributes:** their labels are read by ID (`wc_get_attribute()`). The tests found that `wc_attribute_label()` only knows the attributes WooCommerce registered when the request started.
+  - **SKU rule (CTL-26):** until the marketplace's own products join the projection in increment 3, the rule finds them in WooCommerce's SKU data, leaving vendors' products out.
+  - **Changes:** a change's `variations` is the complete list; changing `attributes` needs `variations` in the same request. Stock is whole numbers, below zero only with backorders. Publishing needs a regular price, or an enabled variation with one (CTL-22).
+  - **Categories (CTL-17):** `GET /catalog/categories` reads one level through WordPress's term query, with a cursor added to its clauses, so a multilingual plugin's language filter still applies. Whether each category has children costs one more query per page.
+  - **Moderation (CTL-20):** the permission `products.moderate`, three `WC_Email`s built on core.vendor's vendor email, and the Moderation screen.
+  - **Dashboard (ARCH-13):** Products (list, new product, product form with variations, categories, tags, prices and sale dates, and the stock form) and Moderation (the queue, with a reason for rejecting and taking down). The API helper sends an Idempotency-Key, made once per new product.
+  - **Tests:**
+    - TEST-3 row 6 so far: `EffectivePriceResolverTest`, `CatalogPolicyTest`, `WooProductCrudAdapterTest`, `OfferAvailabilityProjectionSyncTest` and `ProductMassAssignmentOwnershipTest`.
+    - Also `ProductLifecycleTest`, `ProductInputTest`, `DecimalTest`, `ProjectionRunnerTest`, `ProductEndpointContractTest`, `InventoryMovementJournalTest`, `ProductModerationTest`, `VendorCreatedTermTest`, `ScheduledSaleProjectionTest`, `SkuUniquePerSellerTest` and `WooCommerceProductRestAccessTest` (SEC-8), with product text added to `VendorRichTextSanitizationTest`, and Vitest for the new screens.
+    - `IdorActorMatrixTest` now requests each tenant route's resource from another store for real, and expects 404.
+  - **Not yet:** media and images (increment 2); adopting outside edits, the reconciler, products following store changes, the storefront's block and public catalog reads, "Sold by", translations, the seeder, the ceilings and the end-to-end specs (increment 3).
+
 ## 11. Open questions
 None. All eight were answered on 2026-11-11 and are recorded as CTL-19 to CTL-26.
 
