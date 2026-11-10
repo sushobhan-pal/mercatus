@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Infrastructure\Outbox;
 
+use DateTimeImmutable;
 use Mercatus\Core\Infrastructure\Database\UnitOfWork;
 use Mercatus\Core\Shared\Actor\ExecutionContext;
 use Mercatus\Core\Shared\Clock\Clock;
@@ -31,8 +32,8 @@ final class OutboxEventPublisher implements EventPublisher {
 	 */
 	public function __construct( private UnitOfWork $unit, private ExecutionContext $context, private Clock $clock ) {}
 
-	public function publish( string $name, string $aggregate_type, int|string $aggregate_id, int $aggregate_version, array $payload, int $schema_version = 1, EventLane $lane = EventLane::Critical, ?string $coalesce_key = null ): DomainEvent {
-		$event = new DomainEvent( $name, Uuid::v7( $this->clock ), $this->clock->now(), $aggregate_type, (string) $aggregate_id, $aggregate_version, $this->context->actor(), $this->context->requestId(), $payload, $schema_version, $lane, $coalesce_key );
+	public function publish( string $name, string $aggregate_type, int|string $aggregate_id, int $aggregate_version, array $payload, int $schema_version = 1, EventLane $lane = EventLane::Critical, ?string $coalesce_key = null, ?DateTimeImmutable $available_at = null ): DomainEvent {
+		$event = new DomainEvent( $name, Uuid::v7( $this->clock ), $this->clock->now(), $aggregate_type, (string) $aggregate_id, $aggregate_version, $this->context->actor(), $this->context->requestId(), $payload, $schema_version, $lane, $coalesce_key, $available_at );
 		$this->unit->addEvent( $event );
 
 		return $event;

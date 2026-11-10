@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Tests\Integration\Store;
 
+use Mercatus\Core\Tests\Integration\Catalog\CatalogTestHelpers;
 use WP_UnitTestCase;
 
 /**
@@ -17,7 +18,7 @@ use WP_UnitTestCase;
  */
 final class VendorRichTextSanitizationTest extends WP_UnitTestCase {
 
-	use StoreTestHelpers;
+	use CatalogTestHelpers;
 
 	public function testTheDescriptionKeepsOnlyTheAllowList(): void {
 		$this->vendorWithStore();
@@ -47,5 +48,25 @@ final class VendorRichTextSanitizationTest extends WP_UnitTestCase {
 		$this->assertSame( 'Rare Maps', $store['name'] );
 		$this->assertSame( 'Charts', $store['tagline'] );
 		$this->assertStringNotContainsString( '<iframe', $store['policies']['returns'] );
+	}
+
+	public function testProductTextKeepsOnlyTheAllowList(): void {
+		$this->vendorWithStore();
+
+		$product = $this->createProduct(
+			array(
+				'name'              => '<b>Old</b> map',
+				'description'       => '<p onclick="steal()">Old <strong>map</strong><script>alert(1)</script></p><a href="https://maps.example/">source</a>',
+				'short_description' => '<img src=x onerror=alert(1)>Hand-coloured',
+				'tags'              => array( '<i>Antique</i>' ),
+			)
+		);
+
+		foreach ( array( '<script', 'onclick', 'onerror', '<img' ) as $unsafe ) {
+			$this->assertStringNotContainsString( $unsafe, $product['description'] . $product['short_description'] );
+		}
+		$this->assertStringContainsString( '<strong>map</strong>', $product['description'] );
+		$this->assertMatchesRegularExpression( '#<a href="https://maps.example/" rel="nofollow ugc">source</a>#', $product['description'] );
+		$this->assertSame( array( 'Old map', 'Hand-coloured', array( 'Antique' ) ), array( $product['name'], $product['short_description'], $product['tags'] ) );
 	}
 }

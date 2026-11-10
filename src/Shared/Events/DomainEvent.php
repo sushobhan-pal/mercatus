@@ -36,6 +36,7 @@ final readonly class DomainEvent {
 	 * @param int                  $schemaVersion    Payload schema version, 1 or more.
 	 * @param EventLane            $lane             Outbox lane.
 	 * @param string|null          $coalesceKey      Bulk events with the same key may be merged into the latest.
+	 * @param DateTimeImmutable|null $availableAt     When a bulk event may be handled, if later than when it was published.
 	 * @throws InvalidArgumentException When a field is malformed.
 	 */
 	public function __construct(
@@ -51,6 +52,7 @@ final readonly class DomainEvent {
 		public int $schemaVersion = 1,
 		public EventLane $lane = EventLane::Critical,
 		public ?string $coalesceKey = null,
+		public ?DateTimeImmutable $availableAt = null,
 	) {
 		if ( 1 !== preg_match( self::NAME, $name ) ) {
 			throw new InvalidArgumentException( 'An event name is {module}.{aggregate}.{past_tense}.' );
@@ -60,6 +62,9 @@ final readonly class DomainEvent {
 		}
 		if ( null !== $coalesceKey && ( EventLane::Bulk !== $lane || '' === $coalesceKey ) ) {
 			throw new InvalidArgumentException( 'Only bulk events have a coalesce key.' );
+		}
+		if ( null !== $availableAt && EventLane::Bulk !== $lane ) {
+			throw new InvalidArgumentException( 'Only bulk events may wait for a later time.' );
 		}
 		self::assertPlain( $payload );
 	}
