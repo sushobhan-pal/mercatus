@@ -501,6 +501,114 @@ paths:
       x-mercatus-access: admin
       x-mercatus-permission: identity.api_clients.manage
       x-mercatus-resource: api_client
+  /catalog/categories:
+    get:
+      operationId: getCatalogCategories
+      summary: 'One level of the product categories'
+      tags:
+        - catalog
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - name
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+        -
+          name: parent_id
+          in: query
+          required: false
+          description: 'The parent category; 0 for the top level.'
+          schema:
+            type: integer
+            minimum: 0
+        -
+          name: search
+          in: query
+          required: false
+          description: 'Categories whose name contains this.'
+          schema:
+            type: string
+            maxLength: 50
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        slug:
+                          type: string
+                        parent_id:
+                          type: integer
+                        has_children:
+                          type: boolean
+                      required:
+                        - id
+                        - name
+                        - slug
+                        - parent_id
+                        - has_children
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security: []
+      x-mercatus-access: public
+      x-mercatus-resource: category
   /features:
     get:
       operationId: getFeatures
@@ -908,6 +1016,1641 @@ paths:
           applicationPassword: []
       x-mercatus-access: authenticated
       x-mercatus-resource: app_password
+  '/me/offers/{id}/inventory':
+    patch:
+      operationId: patchMeOffersIdInventory
+      summary: "Set or adjust an offer's stock, with the product's ETag"
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                  description: 'One change per variation (0 for a simple product): variation_id, and quantity to set or delta to add, with manage_stock, stock_status and backorders.'
+              required:
+                - items
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: offer
+  /me/products:
+    get:
+      operationId: getMeProducts
+      summary: 'Your products, newest first'
+      tags:
+        - me
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - id
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+        -
+          name: status
+          in: query
+          required: false
+          description: 'Filter by status.'
+          schema:
+            type: string
+            enum:
+              - draft
+              - pending
+              - published
+              - unpublished
+              - rejected
+              - taken_down
+              - trashed
+        -
+          name: search
+          in: query
+          required: false
+          description: 'Products whose name starts with this, or whose SKU is this.'
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        type:
+                          type: string
+                        name:
+                          type: string
+                        sku:
+                          type: string
+                        status:
+                          type: string
+                        vendor_id:
+                          type: integer
+                        purchasable:
+                          description: 'In the list only.'
+                          type: boolean
+                        effective_price:
+                          type:
+                            - string
+                            - 'null'
+                        min_price:
+                          description: 'In the list only.'
+                          type:
+                            - string
+                            - 'null'
+                        max_price:
+                          description: 'In the list only.'
+                          type:
+                            - string
+                            - 'null'
+                        stock_status:
+                          description: 'In the list only.'
+                          type: string
+                        stock_quantity:
+                          description: 'In the list only.'
+                          type:
+                            - string
+                            - 'null'
+                        url:
+                          type: string
+                        updated_at:
+                          type: string
+                        product_status:
+                          description: 'From a create only.'
+                          type: string
+                          enum:
+                            - draft
+                            - pending
+                            - approved
+                            - rejected
+                            - taken_down
+                            - trashed
+                        status_reason:
+                          description: 'From a create only.'
+                          type: string
+                        offer:
+                          description: 'From a create only.'
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            status:
+                              type: string
+                          required:
+                            - id
+                            - status
+                        description:
+                          description: 'From a create only.'
+                          type: string
+                        short_description:
+                          description: 'From a create only.'
+                          type: string
+                        virtual:
+                          description: 'From a create only.'
+                          type: boolean
+                        weight:
+                          description: 'From a create only.'
+                          type: string
+                        length:
+                          description: 'From a create only.'
+                          type: string
+                        width:
+                          description: 'From a create only.'
+                          type: string
+                        height:
+                          description: 'From a create only.'
+                          type: string
+                        categories:
+                          description: 'From a create only.'
+                          type: array
+                          items:
+                            type: integer
+                        tags:
+                          description: 'From a create only.'
+                          type: array
+                          items:
+                            type: string
+                        attributes:
+                          description: 'From a create only.'
+                          type: array
+                          items:
+                            type: object
+                        variations:
+                          description: 'From a create only.'
+                          type: array
+                          items:
+                            type: object
+                        stock:
+                          description: 'From a create only.'
+                          type:
+                            - object
+                            - 'null'
+                        regular_price:
+                          description: 'From a create only.'
+                          type:
+                            - string
+                            - 'null'
+                        sale_price:
+                          description: 'From a create only.'
+                          type:
+                            - string
+                            - 'null'
+                        sale_starts_at:
+                          description: 'From a create only.'
+                          type:
+                            - string
+                            - 'null'
+                        sale_ends_at:
+                          description: 'From a create only.'
+                          type:
+                            - string
+                            - 'null'
+                        created_at:
+                          description: 'From a create only.'
+                          type: string
+                        version:
+                          description: 'From a create only.'
+                          type: integer
+                      required:
+                        - id
+                        - type
+                        - name
+                        - sku
+                        - status
+                        - vendor_id
+                        - effective_price
+                        - url
+                        - updated_at
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: product
+    post:
+      operationId: postMeProducts
+      summary: 'Create a draft product'
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 191
+                description:
+                  type: string
+                  maxLength: 20000
+                  description: 'Rich text, cleaned to the vendor rich-text allow-list.'
+                short_description:
+                  type: string
+                  maxLength: 2000
+                sku:
+                  type: string
+                  maxLength: 100
+                  description: "Unique among the seller's products."
+                virtual:
+                  type: boolean
+                categories:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: integer
+                tags:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: string
+                  description: 'Tag names; a new one is created.'
+                attributes:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                  description: "A variable product's attributes, the complete list: name and values. A name like a shared attribute's uses it."
+                variations:
+                  type: array
+                  maxItems: 100
+                  items:
+                    type: object
+                  description: "A variable product's variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled and prices."
+                weight:
+                  type: string
+                  description: "A decimal, or ''."
+                length:
+                  type: string
+                  description: "A decimal, or ''."
+                width:
+                  type: string
+                  description: "A decimal, or ''."
+                height:
+                  type: string
+                  description: "A decimal, or ''."
+                regular_price:
+                  type: string
+                  description: "An exact decimal, or '' to clear it."
+                sale_price:
+                  type: string
+                  description: "An exact decimal, or '' to clear it."
+                sale_starts_at:
+                  type: string
+                  description: "RFC 3339, or '' to clear it."
+                sale_ends_at:
+                  type: string
+                  description: "RFC 3339, or '' to clear it."
+                type:
+                  type: string
+                  enum:
+                    - simple
+                    - variable
+                stock:
+                  type: object
+                  description: "A simple product's first stock: manage_stock, quantity, stock_status and backorders."
+              required:
+                - type
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  type:
+                    type: string
+                  name:
+                    type: string
+                  sku:
+                    type: string
+                  status:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  purchasable:
+                    description: 'In the list only.'
+                    type: boolean
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  min_price:
+                    description: 'In the list only.'
+                    type:
+                      - string
+                      - 'null'
+                  max_price:
+                    description: 'In the list only.'
+                    type:
+                      - string
+                      - 'null'
+                  stock_status:
+                    description: 'In the list only.'
+                    type: string
+                  stock_quantity:
+                    description: 'In the list only.'
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  updated_at:
+                    type: string
+                  product_status:
+                    description: 'From a create only.'
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    description: 'From a create only.'
+                    type: string
+                  offer:
+                    description: 'From a create only.'
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  description:
+                    description: 'From a create only.'
+                    type: string
+                  short_description:
+                    description: 'From a create only.'
+                    type: string
+                  virtual:
+                    description: 'From a create only.'
+                    type: boolean
+                  weight:
+                    description: 'From a create only.'
+                    type: string
+                  length:
+                    description: 'From a create only.'
+                    type: string
+                  width:
+                    description: 'From a create only.'
+                    type: string
+                  height:
+                    description: 'From a create only.'
+                    type: string
+                  categories:
+                    description: 'From a create only.'
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    description: 'From a create only.'
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    description: 'From a create only.'
+                    type: array
+                    items:
+                      type: object
+                  variations:
+                    description: 'From a create only.'
+                    type: array
+                    items:
+                      type: object
+                  stock:
+                    description: 'From a create only.'
+                    type:
+                      - object
+                      - 'null'
+                  regular_price:
+                    description: 'From a create only.'
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    description: 'From a create only.'
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    description: 'From a create only.'
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    description: 'From a create only.'
+                    type:
+                      - string
+                      - 'null'
+                  created_at:
+                    description: 'From a create only.'
+                    type: string
+                  version:
+                    description: 'From a create only.'
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - name
+                  - sku
+                  - status
+                  - vendor_id
+                  - effective_price
+                  - url
+                  - updated_at
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: product
+  '/me/products/{id}':
+    delete:
+      operationId: deleteMeProductsId
+      summary: 'Move one of your products to the trash'
+      tags:
+        - me
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: product
+    get:
+      operationId: getMeProductsId
+      summary: 'One of your products, every field'
+      tags:
+        - me
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: product
+    patch:
+      operationId: patchMeProductsId
+      summary: 'Change one of your products'
+      tags:
+        - me
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 191
+                description:
+                  type: string
+                  maxLength: 20000
+                  description: 'Rich text, cleaned to the vendor rich-text allow-list.'
+                short_description:
+                  type: string
+                  maxLength: 2000
+                sku:
+                  type: string
+                  maxLength: 100
+                  description: "Unique among the seller's products."
+                virtual:
+                  type: boolean
+                categories:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: integer
+                tags:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: string
+                  description: 'Tag names; a new one is created.'
+                attributes:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                  description: "A variable product's attributes, the complete list: name and values. A name like a shared attribute's uses it."
+                variations:
+                  type: array
+                  maxItems: 100
+                  items:
+                    type: object
+                  description: "A variable product's variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled and prices."
+                weight:
+                  type: string
+                  description: "A decimal, or ''."
+                length:
+                  type: string
+                  description: "A decimal, or ''."
+                width:
+                  type: string
+                  description: "A decimal, or ''."
+                height:
+                  type: string
+                  description: "A decimal, or ''."
+                regular_price:
+                  type: string
+                  description: "An exact decimal, or '' to clear it."
+                sale_price:
+                  type: string
+                  description: "An exact decimal, or '' to clear it."
+                sale_starts_at:
+                  type: string
+                  description: "RFC 3339, or '' to clear it."
+                sale_ends_at:
+                  type: string
+                  description: "RFC 3339, or '' to clear it."
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: product
+  '/me/products/{id}/publish':
+    post:
+      operationId: postMeProductsIdPublish
+      summary: 'Publish a product, through review when it applies'
+      tags:
+        - me
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: product
+  '/me/products/{id}/unpublish':
+    post:
+      operationId: postMeProductsIdUnpublish
+      summary: 'Unpublish a product'
+      tags:
+        - me
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: product
   /me/store:
     get:
       operationId: getMeStore
@@ -1318,6 +3061,887 @@ paths:
       x-mercatus-access: admin
       x-mercatus-permission: kernel.modules.manage
       x-mercatus-resource: module
+  /products:
+    get:
+      operationId: getProducts
+      summary: "Vendors' products, for moderators"
+      tags:
+        - products
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - id
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+        -
+          name: status
+          in: query
+          required: false
+          description: 'Filter by status.'
+          schema:
+            type: string
+            enum:
+              - draft
+              - pending
+              - approved
+              - rejected
+              - taken_down
+              - trashed
+        -
+          name: vendor
+          in: query
+          required: false
+          description: "One vendor's products."
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        type:
+                          type: string
+                        name:
+                          type: string
+                        sku:
+                          type: string
+                        status:
+                          type: string
+                        vendor_id:
+                          type: integer
+                        purchasable:
+                          type: boolean
+                        effective_price:
+                          type:
+                            - string
+                            - 'null'
+                        min_price:
+                          type:
+                            - string
+                            - 'null'
+                        max_price:
+                          type:
+                            - string
+                            - 'null'
+                        stock_status:
+                          type: string
+                        stock_quantity:
+                          type:
+                            - string
+                            - 'null'
+                        url:
+                          type: string
+                        updated_at:
+                          type: string
+                        product_status:
+                          type: string
+                        status_reason:
+                          type: string
+                      required:
+                        - id
+                        - type
+                        - vendor_id
+                        - product_status
+                        - status_reason
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: products.moderate
+      x-mercatus-resource: product
+  '/products/{id}':
+    get:
+      operationId: getProductsId
+      summary: "A vendor's product, every field"
+      tags:
+        - products
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: products.moderate
+      x-mercatus-resource: product
+  '/products/{id}/approve':
+    post:
+      operationId: postProductsIdApprove
+      summary: 'Approve a pending or taken-down product'
+      tags:
+        - products
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: products.moderate
+      x-mercatus-resource: product
+  '/products/{id}/reject':
+    post:
+      operationId: postProductsIdReject
+      summary: 'Reject a pending product, with a reason'
+      tags:
+        - products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  description: 'Why, for the vendor.'
+              required:
+                - reason
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: products.moderate
+      x-mercatus-resource: product
+  '/products/{id}/take-down':
+    post:
+      operationId: postProductsIdTakeDown
+      summary: 'Take down an approved product, with a reason'
+      tags:
+        - products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  description: 'Why, for the vendor.'
+              required:
+                - reason
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The WooCommerce product ID.'
+                  type:
+                    type: string
+                    enum:
+                      - simple
+                      - variable
+                  status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - published
+                      - unpublished
+                      - rejected
+                      - taken_down
+                      - trashed
+                    description: 'The state the vendor sees.'
+                  product_status:
+                    type: string
+                    enum:
+                      - draft
+                      - pending
+                      - approved
+                      - rejected
+                      - taken_down
+                      - trashed
+                  status_reason:
+                    type: string
+                  vendor_id:
+                    type: integer
+                  offer:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                    required:
+                      - id
+                      - status
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  short_description:
+                    type: string
+                  sku:
+                    type: string
+                  virtual:
+                    type: boolean
+                  weight:
+                    type: string
+                  length:
+                    type: string
+                  width:
+                    type: string
+                  height:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  attributes:
+                    type: array
+                    items:
+                      type: object
+                    description: "name, values, and whether it's a shared attribute."
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                    description: "Each variation's content, prices and stock."
+                  stock:
+                    type:
+                      - object
+                      - 'null'
+                    description: "A simple product's stock: manage_stock, quantity, stock_status, backorders."
+                  regular_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_price:
+                    type:
+                      - string
+                      - 'null'
+                  sale_starts_at:
+                    type:
+                      - string
+                      - 'null'
+                  sale_ends_at:
+                    type:
+                      - string
+                      - 'null'
+                  effective_price:
+                    type:
+                      - string
+                      - 'null'
+                  url:
+                    type: string
+                  created_at:
+                    type: string
+                  updated_at:
+                    type: string
+                  version:
+                    type: integer
+                required:
+                  - id
+                  - type
+                  - status
+                  - product_status
+                  - status_reason
+                  - vendor_id
+                  - offer
+                  - name
+                  - description
+                  - short_description
+                  - sku
+                  - virtual
+                  - weight
+                  - length
+                  - width
+                  - height
+                  - categories
+                  - tags
+                  - attributes
+                  - variations
+                  - stock
+                  - regular_price
+                  - sale_price
+                  - sale_starts_at
+                  - sale_ends_at
+                  - effective_price
+                  - url
+                  - created_at
+                  - updated_at
+                  - version
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: admin
+      x-mercatus-permission: products.moderate
+      x-mercatus-resource: product
   '/settings/{module}':
     get:
       operationId: getSettingsModule

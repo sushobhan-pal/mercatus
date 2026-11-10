@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Store\Infrastructure;
 
+use Mercatus\Core\Infrastructure\Content\RichText;
 use Mercatus\Core\Shared\Errors\DomainError;
 use Mercatus\Core\Shared\Http\Cursor;
 use Mercatus\Core\Shared\Http\ListDefinition;
@@ -113,7 +114,7 @@ final class StoreBlocks {
 		if ( null === $store ) {
 			return '';
 		}
-		$html    = '' === $store['description'] ? '' : '<div class="mercatus-store-about__description">' . wp_kses( (string) $store['description'], Stores::RICH_TEXT ) . '</div>';
+		$html    = '' === $store['description'] ? '' : '<div class="mercatus-store-about__description">' . RichText::escape( (string) $store['description'] ) . '</div>';
 		$contact = (array) $store['contact'];
 		if ( array() !== $contact ) {
 			$html .= '<h2>' . esc_html__( 'Contact', 'mercatus' ) . '</h2><ul class="mercatus-store-about__contact">';

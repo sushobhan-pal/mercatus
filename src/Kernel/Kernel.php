@@ -9,6 +9,8 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Kernel;
 
+use Mercatus\Core\Catalog\Application\CatalogDirectory;
+use Mercatus\Core\Catalog\Infrastructure\Products;
 use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Cache\CoordinationPort;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
@@ -189,6 +191,7 @@ final class Kernel {
 		$container->factory( ManagerDirectory::class, static fn( Container $services ): ManagerDirectory => $services->get( ManagerAppointments::class ) );
 		$container->factory( VendorDirectory::class, static fn( Container $services ): VendorDirectory => $services->get( Vendors::class ) );
 		$container->factory( StoreDirectory::class, static fn( Container $services ): StoreDirectory => $services->get( Stores::class ) );
+		$container->factory( CatalogDirectory::class, static fn( Container $services ): CatalogDirectory => $services->get( Products::class ) );
 		$container->factory( RateLimiter::class, static fn( Container $services ): RateLimiter => new RateLimiter( $services->get( CoordinationPort::class ), $services->get( SettingsReader::class ), static fn(): int => $services->get( Clock::class )->now()->getTimestamp() ) );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
 		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );

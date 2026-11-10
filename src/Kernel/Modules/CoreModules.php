@@ -9,6 +9,15 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Kernel\Modules;
 
+use Mercatus\Core\Catalog\Api\CatalogMenu;
+use Mercatus\Core\Catalog\Api\CatalogPermissions;
+use Mercatus\Core\Catalog\Api\CatalogRoutes;
+use Mercatus\Core\Catalog\Api\CatalogSettingsForm;
+use Mercatus\Core\Catalog\Application\CatalogSettings;
+use Mercatus\Core\Catalog\Infrastructure\CatalogEventSubscriber;
+use Mercatus\Core\Catalog\Infrastructure\CatalogHooks;
+use Mercatus\Core\Catalog\Infrastructure\CatalogMigrations;
+use Mercatus\Core\Catalog\Infrastructure\Email\CatalogEmailSubscriber;
 use Mercatus\Core\Contracts\Module\ModuleManifest;
 use Mercatus\Core\Identity\Api\IdentityMenu;
 use Mercatus\Core\Identity\Api\IdentityPermissions;
@@ -109,6 +118,22 @@ final class CoreModules {
 					meSections: array( StoreMeSection::class ),
 					eventSubscribers: array( StoreEventSubscriber::class, StoreGeocodingSubscriber::class ),
 					settingsForm: StoreSettingsForm::class,
+				),
+				false,
+				true
+			),
+			new RegisteredModule(
+				new ModuleManifest(
+					id: 'core.catalog',
+					version: $version,
+					routes: CatalogRoutes::class,
+					migrations: CatalogMigrations::class,
+					permissions: CatalogPermissions::class,
+					dashboardMenu: CatalogMenu::class,
+					settings: CatalogSettings::class,
+					hooks: CatalogHooks::class,
+					eventSubscribers: array( CatalogEmailSubscriber::class, CatalogEventSubscriber::class ),
+					settingsForm: CatalogSettingsForm::class,
 				),
 				false,
 				true

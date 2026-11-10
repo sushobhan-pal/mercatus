@@ -14,6 +14,7 @@ use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Contracts\Location\Geocoder;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
+use Mercatus\Core\Infrastructure\Content\RichText;
 use Mercatus\Core\Shared\Audit\AuditLog;
 use Mercatus\Core\Shared\Clock\Clock;
 use Mercatus\Core\Shared\Errors\DomainError;
@@ -43,25 +44,6 @@ final class Stores implements StoreDirectory {
 	private const GROUP = 'mercatus_stores';
 
 	private const TTL = 3600;
-
-	/**
-	 * The rich-text allow-list for descriptions (STO-5), applied on save and again on output.
-	 */
-	public const RICH_TEXT = array(
-		'p'      => array(),
-		'br'     => array(),
-		'strong' => array(),
-		'em'     => array(),
-		'b'      => array(),
-		'i'      => array(),
-		'ul'     => array(),
-		'ol'     => array(),
-		'li'     => array(),
-		'a'      => array(
-			'href'  => true,
-			'title' => true,
-		),
-	);
 
 	/**
 	 * Store status by vendor event (STO-2).
@@ -258,6 +240,19 @@ final class Stores implements StoreDirectory {
 		return $this->apply( $this->allowed( $this->resolve( $store ), StorePolicy::MANAGE ), $changes, $expected, false );
 	}
 
+	/**
+	 * A vendor's store with its default location, from the cache, for other modules: the catalog's offers sit
+	 * at the default location and follow the store (CTL-13).
+	 *
+	 * @param int $vendor_id Vendor.
+	 * @return array{0: Store, 1: Location|null}|null
+	 */
+	public function ofVendor( int $vendor_id ): ?array {
+		$id = $this->idForVendor( $vendor_id );
+
+		return $id > 0 ? $this->cached( $id ) : null;
+	}
+
 	public function summary( int $vendor_id ): ?array {
 		$id   = $this->idForVendor( $vendor_id );
 		$pair = $id > 0 ? $this->cached( $id ) : null;
@@ -450,7 +445,7 @@ final class Stores implements StoreDirectory {
 				continue;
 			}
 			$changes[ $field ] = match ( true ) {
-				'description' === $field             => wp_unslash( wp_rel_ugc( wp_slash( wp_kses( $value, self::RICH_TEXT ) ) ) ),
+				'description' === $field             => RichText::clean( $value ),
 				str_starts_with( $field, 'policy_' ) => sanitize_textarea_field( $value ),
 				default                              => sanitize_text_field( $value ),
 			};
