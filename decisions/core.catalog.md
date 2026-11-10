@@ -1,6 +1,6 @@
 # `core.catalog` — Decision File
 
-**Status:** Draft
+**Status:** Approved (2026-11-11)
 **Phase / position:** Phase 3, module 5a in ROAD-3 (products). Before module 5b (discovery) starts, this file gains its sections and open questions, approved the same way.
 **Branch:** `core.catalog`
 **Depends on:** `core.store` (module 4)
@@ -334,7 +334,7 @@ Routes follow API-1 through the route pipeline (IDN-21). A product's `{id}` is i
 - **CTL-17 Categories in 5a (CAT-3).**
   - Products use WooCommerce's categories and tags.
   - Until 5b builds the category index, `GET /catalog/categories?parent_id=X` reads one level of WooCommerce's categories, with a name search. 5b swaps the source behind the same response.
-- **CTL-18 Master v2.12.** These need the master document changed before approval:
+- **CTL-18 Master v2.12.** These needed the master document changed before approval; master v2.12 made them (merged 2026-11-11):
   - **API-2:**
     - the product actions `POST /me/products/{id}/publish` and `POST /me/products/{id}/unpublish`, since API-1 forbids generic status patching;
     - the moderation endpoints (CTL-20).
