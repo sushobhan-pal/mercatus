@@ -339,7 +339,8 @@ Routes follow API-1 through the route pipeline (IDN-21). A product's `{id}` is i
     - the product actions `POST /me/products/{id}/publish` and `POST /me/products/{id}/unpublish`, since API-1 forbids generic status patching;
     - the moderation endpoints (CTL-20).
   - **DATA-2:** `offer_variations`; **DATA-1:** optional prices may be `NULL` (CTL-22).
-  - **CAT-1:** the marketplace's own products use the same model, with the marketplace as seller `0` at its own default location, and their order lines stay in the parent order (CTL-23).
+  - **CAT-1:** the marketplace's own products use the same model, with the marketplace as seller `0` at its own default location, and their order lines get a child order of their own (CTL-23).
+  - **PLAT-3:** `GET /catalog/products/{id}/offers` joins the public reads that send L3 headers (CTL-10).
   - **PLAT-10:** the 300,000 seeded offers come with Pro's SPMV, and Core seeds one offer per product.
 
 - **CTL-19 Product types (OQ-1).**
@@ -380,7 +381,7 @@ Routes follow API-1 through the route pipeline (IDN-21). A product's `{id}` is i
   - **Listing:**
     - Mercatus's lists and API include them, and "Sold by" names the site (CTL-16);
     - `GET /catalog/offers?store=` can't list them in 5a, since they have no store; 5b's catalog-wide lists do.
-  - `core.orders` later keeps their lines in the parent order. Master v2.12 records this model in CAT-1.
+  - **Orders:** their lines get a child order of their own, like any vendor's, so ORD-2's single code path and ORD-3's totals hold; they earn no vendor anything. Master v2.12 records this model in CAT-1. (The OQ-5 option first said these lines would stay in the parent order, which ORD-2 and ORD-3 don't allow; the child order was chosen on 2026-11-11.)
   - Moving a product between the marketplace and a vendor isn't in 5a.
 - **CTL-24 Uploads (OQ-6).**
   - **Images only:** JPEG, PNG, GIF and WebP, plus AVIF where the server can process it. SVG is refused (SEC-7, TM-29).
