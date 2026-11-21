@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Tests\Integration\Identity;
 
+use Mercatus\Core\Identity\Application\IdentitySettings;
 use Mercatus\Core\Tests\Integration\Catalog\CatalogTestHelpers;
 use Mercatus\Core\Tests\Security\PolicyMatrixDataProvider;
 use Mercatus\Core\Tests\Support\Routes\RouteOperation;
@@ -24,6 +25,33 @@ use WP_UnitTestCase;
 final class IdorActorMatrixTest extends WP_UnitTestCase {
 
 	use CatalogTestHelpers;
+
+	/**
+	 * The rate limits this test lifts, with their values before it.
+	 *
+	 * @var array<string, int>
+	 */
+	private array $limits = array();
+
+	/**
+	 * With a persistent object cache every route is rate-limited (PLAT-8), and this test asks every route as
+	 * each actor within a minute, more often than a visitor's write limit allows. Rate limiting isn't what it
+	 * measures (RateLimitEnforcementTest is), so it lifts the limits while it runs.
+	 */
+	public function set_up(): void {
+		parent::set_up();
+		foreach ( array( IdentitySettings::RATE_LIMIT_VISITOR_READS, IdentitySettings::RATE_LIMIT_VISITOR_WRITES, IdentitySettings::RATE_LIMIT_USER_READS, IdentitySettings::RATE_LIMIT_USER_WRITES ) as $key ) {
+			$this->limits[ $key ] = self::kernel()->settings()->int( $key );
+			self::kernel()->settings()->set( $key, 1000000 );
+		}
+	}
+
+	public function tear_down(): void {
+		foreach ( $this->limits as $key => $limit ) {
+			self::kernel()->settings()->set( $key, $limit );
+		}
+		parent::tear_down();
+	}
 
 	public function testEveryRouteRefusesTheActorsItExcludes(): void {
 		$cases = PolicyMatrixDataProvider::fromServer( rest_get_server() );
