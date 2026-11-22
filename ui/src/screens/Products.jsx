@@ -53,15 +53,21 @@ function price( product ) {
  * The screen.
  *
  * @param {Object} props       Props.
+ * @param {Object} props.me    The /me response.
  * @param {string} props.param new, a product's ID, or '' for the list.
  * @return {Element} The screen.
  */
-export default function Products( { param } ) {
+export default function Products( { me, param } ) {
+	const usage = me?.sections?.media;
 	if ( param === 'new' ) {
-		return <NewProduct />;
+		return <NewProduct usage={ usage } />;
 	}
 
-	return param ? <EditProduct id={ param } /> : <ProductList />;
+	return param ? (
+		<EditProduct id={ param } usage={ usage } />
+	) : (
+		<ProductList />
+	);
 }
 
 /**
@@ -142,7 +148,15 @@ function ProductList() {
 					<tbody>
 						{ data.items.map( ( product ) => (
 							<tr key={ product.id }>
-								<td>
+								<td className="mercatus-product-cell">
+									{ product.image && (
+										<img
+											src={ product.image.thumbnail }
+											alt=""
+											width="40"
+											height="40"
+										/>
+									) }
 									<a href={ link( 'products', product.id ) }>
 										{ product.name }
 									</a>
@@ -179,9 +193,11 @@ function ProductList() {
 /**
  * A new product: its type, then the form. The Idempotency-Key is made once, so a retried create runs once.
  *
+ * @param {Object} props         Props.
+ * @param {Object} [props.usage] The /me media section.
  * @return {Element} The screen.
  */
-function NewProduct() {
+function NewProduct( { usage } ) {
 	const [ type, setType ] = useState( 'simple' );
 	const [ key ] = useState( idempotencyKey );
 	const [ error, setError ] = useState( null );
@@ -214,6 +230,7 @@ function NewProduct() {
 				type={ type }
 				onSave={ create }
 				error={ error }
+				usage={ usage }
 			/>
 		</section>
 	);
@@ -222,11 +239,12 @@ function NewProduct() {
 /**
  * One product: its state and actions, its form and its stock.
  *
- * @param {Object} props    Props.
- * @param {string} props.id Product ID.
+ * @param {Object} props         Props.
+ * @param {string} props.id      Product ID.
+ * @param {Object} [props.usage] The /me media section.
  * @return {Element} The screen.
  */
-function EditProduct( { id } ) {
+function EditProduct( { id, usage } ) {
 	const { data, etag, error, loading, reload } = useResource(
 		`/me/products/${ id }`
 	);
@@ -357,6 +375,7 @@ function EditProduct( { id } ) {
 						type={ data.type }
 						onSave={ save }
 						error={ result?.error ?? null }
+						usage={ usage }
 					/>
 					<StockForm
 						key={ `stock-${ etag }` }

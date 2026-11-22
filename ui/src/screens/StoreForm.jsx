@@ -1,5 +1,6 @@
 /**
- * A store's profile, visibility, address and policies (STO-11), saved only with the fields that changed.
+ * A store's profile, logo and banner, visibility, address and policies (STO-11, STO-12), saved only with the
+ * fields that changed.
  */
 import {
 	Button,
@@ -10,6 +11,7 @@ import {
 } from '@wordpress/components';
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import ImageField from '../components/ImageField';
 
 const POLICIES = [ 'shipping', 'returns', 'privacy' ];
 
@@ -36,6 +38,8 @@ export function valuesOf( store ) {
 		slug: store.slug,
 		tagline: store.tagline,
 		description: store.description,
+		logo_id: store.logo_id ?? null,
+		banner_id: store.banner_id ?? null,
 		contact_email: store.contact_email,
 		contact_phone: store.contact_phone,
 		show_email: store.show_email,
@@ -82,10 +86,11 @@ export function changesBetween( before, after ) {
 
 /**
  * @param {Object}                          props
- * @param {Object}                          props.store  The store, every field.
- * @param {function(Object): Promise<void>} props.onSave Saves the changes.
+ * @param {Object}                          props.store   The store, every field.
+ * @param {function(Object): Promise<void>} props.onSave  Saves the changes.
+ * @param {Object}                          [props.usage] The /me media section.
  */
-export default function StoreForm( { store, onSave } ) {
+export default function StoreForm( { store, onSave, usage } ) {
 	const [ before ] = useState( () => valuesOf( store ) );
 	const [ values, setValues ] = useState( before );
 	const [ busy, setBusy ] = useState( false );
@@ -171,6 +176,23 @@ export default function StoreForm( { store, onSave } ) {
 				) }
 				rows={ 6 }
 				{ ...field( 'description' ) }
+			/>
+			<ImageField
+				label={ __( 'Logo', 'mercatus' ) }
+				help={ __( 'Square works best.', 'mercatus' ) }
+				value={ values.logo_id }
+				onChange={ ( id ) => setValues( { ...values, logo_id: id } ) }
+				usage={ usage }
+			/>
+			<ImageField
+				label={ __( 'Banner', 'mercatus' ) }
+				help={ __(
+					'A wide image across the top of your store page.',
+					'mercatus'
+				) }
+				value={ values.banner_id }
+				onChange={ ( id ) => setValues( { ...values, banner_id: id } ) }
+				usage={ usage }
 			/>
 			<fieldset className="mercatus-fieldset">
 				<legend>{ __( 'Contact', 'mercatus' ) }</legend>

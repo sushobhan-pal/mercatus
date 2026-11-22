@@ -156,6 +156,119 @@ body.mercatus-dashboard-page {
 	}
 }
 
+.mercatus-media-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: var(--mercatus-gap);
+	margin: var(--mercatus-gap) 0;
+	padding: 0;
+	list-style: none;
+
+	figure {
+		margin: 0;
+	}
+
+	img {
+		display: block;
+		width: 100%;
+		aspect-ratio: 1;
+		object-fit: cover;
+		background: var(--mercatus-surface);
+		border: 1px solid var(--mercatus-border);
+	}
+
+	figcaption {
+		display: grid;
+		margin-top: 4px;
+		font-size: 12px;
+		overflow-wrap: anywhere;
+	}
+}
+
+.mercatus-media-grid__pick {
+	display: block;
+	width: 100%;
+	padding: 0;
+	border: 3px solid transparent;
+	background: none;
+	cursor: pointer;
+
+	&.is-selected,
+	&:focus-visible {
+		border-color: var(--wp-admin-theme-color, #3858e9);
+	}
+}
+
+.mercatus-uploader {
+	margin: var(--mercatus-gap) 0;
+}
+
+.mercatus-uploads {
+	margin: 8px 0;
+	padding: 0;
+	list-style: none;
+
+	.is-failed {
+		color: #b32d2e;
+	}
+}
+
+.mercatus-uploads__name {
+	font-weight: 600;
+}
+
+.mercatus-usage {
+	display: grid;
+	gap: 4px;
+	max-width: 320px;
+
+	progress {
+		width: 100%;
+	}
+}
+
+.mercatus-confirm p {
+	margin: 4px 0;
+}
+
+.mercatus-thumbs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--mercatus-gap);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+
+	li {
+		display: grid;
+		justify-items: start;
+		gap: 4px;
+		width: 96px;
+	}
+
+	img {
+		width: 96px;
+		height: 96px;
+		object-fit: cover;
+		border: 1px solid var(--mercatus-border);
+	}
+}
+
+.mercatus-image-field img {
+	max-width: 240px;
+	max-height: 120px;
+	object-fit: contain;
+}
+
+.mercatus-variation-image img,
+.mercatus-product-cell img {
+	width: 40px;
+	height: 40px;
+	object-fit: cover;
+	vertical-align: middle;
+	margin-right: 8px;
+}
+
 .mercatus-actions {
 	display: flex;
 	gap: 8px;

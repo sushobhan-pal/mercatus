@@ -134,6 +134,7 @@ describe( 'product form', () => {
 				regular_price: '10',
 				sale_price: '',
 				enabled: true,
+				image_id: 0,
 			},
 			{
 				attributes: { Fit: 'M' },
@@ -141,8 +142,45 @@ describe( 'product form', () => {
 				regular_price: '',
 				sale_price: '',
 				enabled: true,
+				image_id: 0,
 			},
 		] );
+	} );
+
+	test( "sends the images in order by ID, and a variation's image by its ID", () => {
+		const map = { id: 5, url: 'u5', thumbnail: 't5', alt: '' };
+		const back = { id: 6, url: 'u6', thumbnail: 't6', alt: '' };
+		const before = valuesOf(
+			product( {
+				type: 'variable',
+				images: [ map, back ],
+				variations: [
+					{
+						id: 51,
+						attributes: { Fit: 'S' },
+						sku: '',
+						regular_price: '10',
+						sale_price: null,
+						enabled: true,
+						image: map,
+					},
+				],
+			} )
+		);
+
+		expect( changesBetween( before, before ) ).toEqual( {} );
+		expect(
+			changesBetween( before, { ...before, images: [ back, map ] } )
+		).toEqual( { images: [ 6, 5 ] } );
+		const changes = changesBetween( before, {
+			...before,
+			variations: [ { ...before.variations[ 0 ], image: back } ],
+		} );
+		expect( changes.variations[ 0 ] ).toMatchObject( {
+			id: 51,
+			image_id: 6,
+		} );
+		expect( changes.variations[ 0 ] ).not.toHaveProperty( 'image' );
 	} );
 
 	test( 'adds only the combinations that are missing', () => {
@@ -281,6 +319,75 @@ describe( 'Products screen', () => {
 			( [ options ] ) => options.method === 'POST'
 		)[ 0 ];
 		expect( post.path ).toContain( '/mercatus/v1/me/products/41/publish' );
+	} );
+
+	test( 'adds images from the library, makes one the main image, and saves them by ID', async () => {
+		const library = [
+			{
+				id: 9,
+				url: 'http://example.org/uploads/back.jpg',
+				thumbnail_url: 'http://example.org/uploads/back-150x150.jpg',
+				mime: 'image/jpeg',
+				bytes: 2048,
+				width: 400,
+				height: 300,
+				created_at: '2026-11-22T10:00:00Z',
+			},
+		];
+		apiFetch.mockImplementation( ( { path, method } ) => {
+			if ( path.startsWith( '/mercatus/v1/catalog/categories' ) ) {
+				return Promise.resolve( ok( empty() ) );
+			}
+			if ( path.startsWith( '/mercatus/v1/me/media' ) ) {
+				return Promise.resolve( ok( { ...empty(), items: library } ) );
+			}
+			if ( method === 'PATCH' ) {
+				return Promise.resolve( ok( product() ) );
+			}
+			return Promise.resolve(
+				ok(
+					product( {
+						images: [
+							{
+								id: 8,
+								url: 'http://example.org/uploads/front.jpg',
+								thumbnail:
+									'http://example.org/uploads/front-300x300.jpg',
+								alt: 'Front',
+							},
+						],
+					} ),
+					{ ETag: '"v3"' }
+				)
+			);
+		} );
+		render( <Products param="41" /> );
+
+		expect(
+			await screen.findByRole( 'img', { name: 'Front' } )
+		).toBeInTheDocument();
+		await userEvent.click(
+			screen.getByRole( 'button', { name: 'Add images' } )
+		);
+		const dialog = await screen.findByRole( 'dialog' );
+		await userEvent.click(
+			await within( dialog ).findByRole( 'button', { name: 'back.jpg' } )
+		);
+		await userEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Add 1 image' } )
+		);
+		await userEvent.click(
+			screen.getByRole( 'button', { name: 'Make main' } )
+		);
+		await userEvent.click(
+			screen.getByRole( 'button', { name: 'Save product' } )
+		);
+
+		const patch = apiFetch.mock.calls.find(
+			( [ options ] ) => options.method === 'PATCH'
+		)[ 0 ];
+		expect( patch.headers ).toEqual( { 'If-Match': '"v3"' } );
+		expect( patch.data ).toEqual( { images: [ 9, 8 ] } );
 	} );
 
 	test( "saves stock with the product's ETag", async () => {

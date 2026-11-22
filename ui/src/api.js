@@ -24,18 +24,26 @@ export class ApiError extends Error {
 /**
  * Calls an endpoint.
  *
- * @param {string} path                     Path below the namespace, for example /me.
- * @param {Object} options                  Options.
- * @param {string} [options.method]         HTTP method.
- * @param {Object} [options.data]           Body.
- * @param {Object} [options.query]          Query arguments.
- * @param {string} [options.ifMatch]        The ETag a change is based on.
- * @param {string} [options.idempotencyKey] Idempotency-Key, for a POST that must run once (PLAT-7).
+ * @param {string}   path                     Path below the namespace, for example /me.
+ * @param {Object}   options                  Options.
+ * @param {string}   [options.method]         HTTP method.
+ * @param {Object}   [options.data]           Body.
+ * @param {FormData} [options.body]           A multipart body, such as an upload, instead of data.
+ * @param {Object}   [options.query]          Query arguments.
+ * @param {string}   [options.ifMatch]        The ETag a change is based on.
+ * @param {string}   [options.idempotencyKey] Idempotency-Key, for a POST that must run once (PLAT-7).
  * @return {Promise<{data: unknown, etag: (string|null)}>} The body and the ETag.
  */
 export async function request(
 	path,
-	{ method = 'GET', data, query = {}, ifMatch, idempotencyKey: key } = {}
+	{
+		method = 'GET',
+		data,
+		body,
+		query = {},
+		ifMatch,
+		idempotencyKey: key,
+	} = {}
 ) {
 	const headers = {
 		...( ifMatch ? { 'If-Match': ifMatch } : {} ),
@@ -49,7 +57,7 @@ export async function request(
 				_locale: 'user',
 			} ),
 			method,
-			data,
+			...( body ? { body } : { data } ),
 			headers,
 			parse: false,
 		} );

@@ -1,6 +1,7 @@
 /**
- * A vendor's product form (CTL-19, CTL-21, CTL-22): details, prices with an optional scheduled sale, categories
- * and tags, a variable product's attributes and variations, and a new simple product's first stock.
+ * A vendor's product form (CTL-14, CTL-19, CTL-21, CTL-22): details, images, prices with an optional scheduled
+ * sale, categories and tags, a variable product's attributes and variations with their images, and a new simple
+ * product's first stock.
  */
 import {
 	Button,
@@ -14,6 +15,11 @@ import {
 import { useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import CategoryPicker from '../components/CategoryPicker';
+import { toImage } from '../components/media';
+import MediaPicker from '../components/MediaPicker';
+
+// As many images as a product may have (CatalogFields::IMAGES_MAX).
+const IMAGES_MAX = 20;
 
 const TEXT = [
 	'name',
@@ -72,6 +78,7 @@ function variationValues( variation ) {
 		regular_price: variation.regular_price ?? '',
 		sale_price: variation.sale_price ?? '',
 		enabled: variation.enabled ?? true,
+		image: variation.image ?? null,
 	};
 }
 
@@ -95,6 +102,7 @@ export function valuesOf( product ) {
 		virtual: product.virtual ?? false,
 		categories: product.categories ?? [],
 		tags: product.tags ?? [],
+		images: product.images ?? [],
 		attributes: ( product.attributes ?? [] ).map(
 			( { name, values } ) => ( { name, values } )
 		),
@@ -103,15 +111,26 @@ export function valuesOf( product ) {
 }
 
 /**
- * A variation as the API takes it: an existing one by its ID.
+ * A variation as the API takes it: an existing one by its ID, its image by the image's ID (0 for none).
  *
  * @param {Object} variation Form values.
  * @return {Object} The request's variation.
  */
 function variationPayload( variation ) {
-	const { id, ...fields } = variation;
+	const { id, image, ...fields } = variation;
+	const payload = { ...fields, image_id: image?.id ?? 0 };
 
-	return id ? { id, ...fields } : fields;
+	return id ? { id, ...payload } : payload;
+}
+
+/**
+ * Image IDs, in order.
+ *
+ * @param {Object[]} images Images.
+ * @return {number[]} Their IDs.
+ */
+function imageIds( images ) {
+	return images.map( ( image ) => image.id );
 }
 
 /**
@@ -142,6 +161,12 @@ export function changesBetween( before, after ) {
 			changes[ field ] = after[ field ];
 		}
 	} );
+	if (
+		JSON.stringify( imageIds( after.images ) ) !==
+		JSON.stringify( imageIds( before.images ) )
+	) {
+		changes.images = imageIds( after.images );
+	}
 	if (
 		JSON.stringify( after.attributes ) !==
 			JSON.stringify( before.attributes ) ||
@@ -204,9 +229,10 @@ export function combinations( attributes, variations ) {
  * @param {string}                            props.type    simple or variable.
  * @param {(fields: Object) => Promise<void>} props.onSave  Saves a create's fields or a change.
  * @param {Object|null}                       [props.error] The last save's error.
+ * @param {Object}                            [props.usage] The /me media section.
  * @return {Element} The form.
  */
-export default function ProductForm( { product, type, onSave, error } ) {
+export default function ProductForm( { product, type, onSave, error, usage } ) {
 	const creating = ! product.id;
 	const [ before ] = useState( () => valuesOf( product ) );
 	const [ values, setValues ] = useState( before );
@@ -217,6 +243,8 @@ export default function ProductForm( { product, type, onSave, error } ) {
 		backorders: 'no',
 	} );
 	const [ busy, setBusy ] = useState( false );
+	// What the image picker is choosing: 'images', or a variation's index.
+	const [ picking, setPicking ] = useState( null );
 	const changes = changesBetween( before, values );
 	const set = ( field, value ) =>
 		setValues( { ...values, [ field ]: value } );
@@ -298,6 +326,77 @@ export default function ProductForm( { product, type, onSave, error } ) {
 				__next40pxDefaultSize
 				{ ...field( 'sku' ) }
 			/>
+			<fieldset className="mercatus-fieldset">
+				<legend>{ __( 'Images', 'mercatus' ) }</legend>
+				<p className="mercatus-muted">
+					{ __(
+						'The first image is the product’s main image; the others make its gallery.',
+						'mercatus'
+					) }
+				</p>
+				{ values.images.length > 0 && (
+					<ul className="mercatus-thumbs">
+						{ values.images.map( ( image, index ) => (
+							<li key={ image.id }>
+								<img
+									src={ image.thumbnail }
+									alt={
+										image.alt ||
+										sprintf(
+											/* translators: %d: the image's position. */
+											__( 'Image %d', 'mercatus' ),
+											index + 1
+										)
+									}
+								/>
+								{ index === 0 ? (
+									<span className="mercatus-muted">
+										{ __( 'Main image', 'mercatus' ) }
+									</span>
+								) : (
+									<Button
+										variant="link"
+										onClick={ () =>
+											set( 'images', [
+												image,
+												...values.images.filter(
+													( _, at ) => at !== index
+												),
+											] )
+										}
+									>
+										{ __( 'Make main', 'mercatus' ) }
+									</Button>
+								) }
+								<Button
+									variant="link"
+									isDestructive
+									onClick={ () =>
+										set(
+											'images',
+											values.images.filter(
+												( _, at ) => at !== index
+											)
+										)
+									}
+								>
+									{ __( 'Remove', 'mercatus' ) }
+								</Button>
+							</li>
+						) ) }
+					</ul>
+				) }
+				{ values.images.length < IMAGES_MAX && (
+					<div className="mercatus-actions">
+						<Button
+							variant="secondary"
+							onClick={ () => setPicking( 'images' ) }
+						>
+							{ __( 'Add images', 'mercatus' ) }
+						</Button>
+					</div>
+				) }
+			</fieldset>
 			{ type === 'simple' && (
 				<fieldset className="mercatus-fieldset">
 					<legend>{ __( 'Price', 'mercatus' ) }</legend>
@@ -493,6 +592,7 @@ export default function ProductForm( { product, type, onSave, error } ) {
 							<th>{ __( 'Price', 'mercatus' ) }</th>
 							<th>{ __( 'Sale price', 'mercatus' ) }</th>
 							<th>{ __( 'For sale', 'mercatus' ) }</th>
+							<th>{ __( 'Image', 'mercatus' ) }</th>
 							<th />
 						</tr>
 					</thead>
@@ -537,6 +637,36 @@ export default function ProductForm( { product, type, onSave, error } ) {
 										__nextHasNoMarginBottom
 									/>
 								</td>
+								<td className="mercatus-variation-image">
+									{ variation.image && (
+										<img
+											src={ variation.image.thumbnail }
+											alt={ variation.image.alt }
+										/>
+									) }
+									<Button
+										variant="link"
+										onClick={ () => setPicking( index ) }
+									>
+										{ variation.image
+											? __( 'Change', 'mercatus' )
+											: __( 'Choose', 'mercatus' ) }
+									</Button>
+									{ variation.image && (
+										<Button
+											variant="link"
+											isDestructive
+											onClick={ () =>
+												setVariation( index, {
+													...variation,
+													image: null,
+												} )
+											}
+										>
+											{ __( 'Remove image', 'mercatus' ) }
+										</Button>
+									) }
+								</td>
 								<td>
 									<Button
 										variant="link"
@@ -557,6 +687,37 @@ export default function ProductForm( { product, type, onSave, error } ) {
 						) ) }
 					</tbody>
 				</table>
+			) }
+			{ picking === 'images' && (
+				<MediaPicker
+					title={ __( 'Add images', 'mercatus' ) }
+					multiple
+					max={ IMAGES_MAX - values.images.length }
+					exclude={ imageIds( values.images ) }
+					usage={ usage }
+					onClose={ () => setPicking( null ) }
+					onSelect={ ( chosen ) => {
+						set( 'images', [
+							...values.images,
+							...chosen.map( toImage ),
+						] );
+						setPicking( null );
+					} }
+				/>
+			) }
+			{ typeof picking === 'number' && (
+				<MediaPicker
+					title={ __( 'Variation image', 'mercatus' ) }
+					usage={ usage }
+					onClose={ () => setPicking( null ) }
+					onSelect={ ( [ media ] ) => {
+						setVariation( picking, {
+							...values.variations[ picking ],
+							image: toImage( media ),
+						} );
+						setPicking( null );
+					} }
+				/>
 			) }
 			<Button
 				variant="primary"

@@ -429,6 +429,32 @@ Routes follow API-1 through the route pipeline (IDN-21). A product's `{id}` is i
     - `IdorActorMatrixTest` now requests each tenant route's resource from another store for real, and expects 404.
   - **Not yet:** media and images (increment 2); adopting outside edits, the reconciler, products following store changes, the storefront's block and public catalog reads, "Sold by", translations, the seeder, the ceilings and the end-to-end specs (increment 3).
 
+- **CTL-28 Media and images (increment 2).**
+  - **Code:** the contracts `Contracts\Media\MediaOwnership` (core.store checks the logo and banner through it, CTL-14) and `MediaQuota` (each vendor's space, the seam Pro's Memberships can replace), the Application port `MediaDirectory`, and `MediaLibrary`, `ImageSanitizer` and `MediaRepository`. `media_ownership` (migration 0008) also keeps the thumbnail's path, so `GET /me/media` reads only that table.
+  - **An upload, in order:**
+    - the size limit, then room for the file as sent;
+    - the type from its content, among those this server can write;
+    - at most 25 megapixels, read from the header before anything is decoded. Decoding takes about 4 bytes a pixel, twice while a photo is turned, so this keeps GD within WordPress's 256 MB image memory, and it refuses a small file that would decode to gigabytes;
+    - a copy re-encoded, with GD where it can and otherwise Imagick with its profiles stripped. A JPEG is first turned upright from its EXIF orientation, since that is metadata too;
+    - stored through `wp_handle_sideload()` with only its real type allowed, and one extension: dots in the name become hyphens. The attachment's author is the vendor's user;
+    - its sizes made, then room checked again with every size counted, the original WordPress keeps of a scaled image included. If it doesn't fit, everything is deleted;
+    - the row, `catalog.media.uploaded` and the audit entry, in one transaction.
+  - **Refusals:** 400 `mercatus_media_upload_failed`, 413 `mercatus_media_too_large` (`max_bytes` or `max_pixels`), 415 `mercatus_media_type_refused` (`types`), 422 `mercatus_media_quota_exceeded` (`quota_bytes`, `used_bytes`), and 404 `mercatus_media_unknown` (SEC-4).
+  - **Deleting has one path,** WordPress's `delete_attachment` hook, so an image deleted in WordPress's media library is forgotten like one deleted in the dashboard.
+    - The vendor's products drop it first: their image, gallery and variations' images. Each product's version moves on, `catalog.product.updated` is published, and its cards are rebuilt to show the next image.
+    - Then the row goes, with `catalog.media.deleted`, which core.store handles by clearing the logo or banner.
+    - `DELETE /me/media/{id}` answers with the deleted image.
+  - **Beyond Section 4:** `GET /me/media/{id}`, so the store form can show the current logo and banner, since the store carries only their IDs. Product list items gain `image`, from the card.
+  - **Idempotency:** uploads accept a key (IDN-9). The request hash now includes each uploaded file's SHA-256, so the same key with another file gets 422 (PLAT-7).
+  - **`/me`:** the `media` section gives the space used, the quota, the largest upload and the accepted types. The space used is cached per vendor, under a revision that uploads and deletions bump.
+  - **Policy (CTL-4):** a vendor's images are theirs and their staff's alone. Administrators and moderators manage images in WordPress's media library; through the API they get 404.
+  - **OpenAPI:** an operation with a binary field is documented as `multipart/form-data`.
+  - **Dashboard (ARCH-13):** the Media screen (the library, uploads one at a time with each file's state, deleting after a confirmation, and the space used), a picker that can upload too, product images (a main image and a gallery, up to 20), each variation's image, and the store's logo and banner. The API helper takes a `FormData` body.
+  - **Tests:**
+    - `UploadMimeSvgPolicyTest`: SVG and scripts refused whatever their names, metadata and anything appended removed, photos turned upright, one extension, and the pixel limit.
+    - `MediaOwnershipQuotaTest`, `MediaCrossVendorDeleteTest` and `MediaEndpointContractTest`, a media resource in `IdorActorMatrixTest`, the media case in `CatalogPolicyTest`, a multipart case in `OpenApiGeneratorTest`, and Vitest for the Media screen and the image fields.
+  - **Not yet (increment 3):** adopting outside edits, the reconciler, products following store changes, the storefront's block and public catalog reads, "Sold by", translations, the seeder, the ceilings and the end-to-end specs.
+
 ## 11. Open questions
 None. All eight were answered on 2026-11-11 and are recorded as CTL-19 to CTL-26.
 

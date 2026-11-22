@@ -1,5 +1,6 @@
 /**
- * The vendor's store (STO-11, STO-13): the profile, opening the store, the address and the policies.
+ * The vendor's store (STO-11, STO-12, STO-13): the profile, its logo and banner, opening the store, the address
+ * and the policies.
  */
 import { ExternalLink, Notice } from '@wordpress/components';
 import { useDispatch } from '@wordpress/data';
@@ -11,7 +12,14 @@ import { ErrorState, Loading } from '../components/ScreenState';
 import { STORE_NAME } from '../store';
 import StoreForm from './StoreForm';
 
-export default function Store() {
+/**
+ * The screen.
+ *
+ * @param {Object} props    Props.
+ * @param {Object} props.me The /me response.
+ * @return {Element} The screen.
+ */
+export default function Store( { me } ) {
 	const { data, etag, error, loading, reload } = useResource( '/me/store' );
 	const { refreshMe } = useDispatch( STORE_NAME );
 	const [ result, setResult ] = useState( null );
@@ -62,7 +70,12 @@ export default function Store() {
 				</Notice>
 			) }
 			{ result?.error && <ErrorState error={ result.error } /> }
-			<StoreForm key={ etag } store={ data } onSave={ save } />
+			<StoreForm
+				key={ etag }
+				store={ data }
+				onSave={ save }
+				usage={ me?.sections?.media }
+			/>
 		</section>
 	);
 }

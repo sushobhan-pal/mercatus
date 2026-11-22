@@ -5,6 +5,7 @@
 import ApiClients from './ApiClients';
 import Applications from './Applications';
 import Managers from './Managers';
+import Media from './Media';
 import Moderation from './Moderation';
 import Modules from './Modules';
 import Products from './Products';
@@ -21,6 +22,7 @@ const screens = {
 	store: Store,
 	stores: Stores,
 	products: Products,
+	media: Media,
 	moderation: Moderation,
 	'api-clients': ApiClients,
 	managers: Managers,
