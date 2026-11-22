@@ -278,6 +278,14 @@ final class StoreRoutes implements RouteProvider {
 				'type'        => 'object',
 				'description' => 'The default location\'s address: address_1, address_2, city, state, postcode and country (ISO 3166-1 alpha-2).',
 			),
+			'logo_id'    => array(
+				'type'        => array( 'integer', 'null' ),
+				'description' => 'An image the store\'s vendor uploaded, or null to clear it.',
+			),
+			'banner_id'  => array(
+				'type'        => array( 'integer', 'null' ),
+				'description' => 'An image the store\'s vendor uploaded, or null to clear it.',
+			),
 		);
 		foreach ( StoreFields::TEXT as $field => $max ) {
 			$args[ $field ] = array(

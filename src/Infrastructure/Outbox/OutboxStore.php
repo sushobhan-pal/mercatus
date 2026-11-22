@@ -37,7 +37,7 @@ final class OutboxStore {
 	 * Writes events in one statement; call inside the command's transaction.
 	 *
 	 * @param list<DomainEvent>  $events Events.
-	 * @param DateTimeImmutable  $now    Current time; events are available from now.
+	 * @param DateTimeImmutable  $now    Current time; events are available from now, unless an event waits for later.
 	 */
 	public function insertMany( array $events, DateTimeImmutable $now ): void {
 		if ( array() === $events ) {
@@ -45,7 +45,7 @@ final class OutboxStore {
 		}
 		$rows = array();
 		foreach ( $events as $event ) {
-			$row    = $this->serializer->toRow( $event, $now );
+			$row    = $this->serializer->toRow( $event, $event->availableAt ?? $now );
 			$rows[] = self::prepared(
 				$this->db,
 				'(%s, %s, %s, NULLIF(%s, \'\'), %s, %s, %d, %s, %d, %s, %d, %s, %s, %s)',

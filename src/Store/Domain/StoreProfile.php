@@ -47,7 +47,12 @@ final class StoreProfile {
 	/**
 	 * The fields a change may name.
 	 */
-	public const FIELDS = array( 'name', 'slug', 'tagline', 'description', 'contact_email', 'contact_phone', 'show_email', 'show_phone', 'policy_shipping', 'policy_returns', 'policy_privacy', 'visibility', 'address' );
+	public const FIELDS = array( 'name', 'slug', 'tagline', 'description', 'contact_email', 'contact_phone', 'show_email', 'show_phone', 'policy_shipping', 'policy_returns', 'policy_privacy', 'visibility', 'address', 'logo_id', 'banner_id' );
+
+	/**
+	 * Image fields: an attachment ID, or null to clear it (STO-12).
+	 */
+	public const IMAGES = array( 'logo_id', 'banner_id' );
 
 	/**
 	 * A valid change, with only the fields it names.
@@ -66,6 +71,7 @@ final class StoreProfile {
 				in_array( $field, array( 'show_email', 'show_phone' ), true ) => is_bool( $value ) ? $value : throw self::invalid( $field ),
 				'visibility' === $field               => is_string( $value ) && in_array( $value, Store::VISIBILITIES, true ) ? $value : throw self::invalid( $field ),
 				'address' === $field                  => self::address( $value ),
+				in_array( $field, self::IMAGES, true ) => null === $value || ( is_int( $value ) && $value > 0 ) ? $value : throw self::invalid( $field ),
 				default                               => throw self::invalid( (string) $field ),
 			};
 		}

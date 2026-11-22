@@ -1,7 +1,7 @@
 /**
  * The vendor's Store screen and the store form (STO-11, STO-13).
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 import apiFetch from '@wordpress/api-fetch';
@@ -108,5 +108,67 @@ describe( 'Store screen', () => {
 		)[ 0 ];
 		expect( patch.headers ).toEqual( { 'If-Match': '"v3"' } );
 		expect( patch.data ).toEqual( { tagline: 'Hand-drawn maps' } );
+	} );
+
+	test( 'shows the logo, and sets a banner from the library', async () => {
+		const image = ( id, name ) => ( {
+			id,
+			url: `http://example.org/uploads/${ name }.jpg`,
+			thumbnail_url: `http://example.org/uploads/${ name }-150x150.jpg`,
+			mime: 'image/jpeg',
+			bytes: 2048,
+			width: 400,
+			height: 300,
+			created_at: '2026-11-22T10:00:00Z',
+		} );
+		apiFetch.mockImplementation( ( { path, method } ) => {
+			if ( path.startsWith( '/mercatus/v1/me/media/21' ) ) {
+				return Promise.resolve( ok( image( 21, 'logo' ) ) );
+			}
+			if ( path.startsWith( '/mercatus/v1/me/media' ) ) {
+				return Promise.resolve(
+					ok( {
+						items: [ image( 22, 'banner' ) ],
+						per_page: 48,
+						next_cursor: null,
+						has_more: false,
+					} )
+				);
+			}
+			if ( path.startsWith( '/mercatus/v1/me/store' ) ) {
+				return Promise.resolve(
+					ok( store( { logo_id: 21 } ), {
+						ETag: method === 'PATCH' ? '"v4"' : '"v3"',
+					} )
+				);
+			}
+			return Promise.resolve( ok( me() ) );
+		} );
+		render( <Store /> );
+
+		expect(
+			await screen.findByRole( 'img', { name: 'Logo' } )
+		).toHaveAttribute(
+			'src',
+			'http://example.org/uploads/logo-150x150.jpg'
+		);
+		const banner = screen.getByRole( 'group', { name: 'Banner' } );
+		await userEvent.click(
+			within( banner ).getByRole( 'button', { name: 'Choose image' } )
+		);
+		await userEvent.click(
+			await within( await screen.findByRole( 'dialog' ) ).findByRole(
+				'button',
+				{ name: 'banner.jpg' }
+			)
+		);
+		await userEvent.click(
+			screen.getByRole( 'button', { name: 'Save store' } )
+		);
+
+		const patch = apiFetch.mock.calls.find(
+			( [ options ] ) => options.method === 'PATCH'
+		)[ 0 ];
+		expect( patch.data ).toEqual( { banner_id: 22 } );
 	} );
 } );

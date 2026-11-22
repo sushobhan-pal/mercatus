@@ -50,6 +50,8 @@ final class StoreRepository {
 		'policy_returns'  => '%s',
 		'policy_privacy'  => '%s',
 		'visibility'      => '%s',
+		'logo_id'         => 'NULLIF(%d, 0)',
+		'banner_id'       => 'NULLIF(%d, 0)',
 	);
 
 	/**
@@ -142,6 +144,21 @@ final class StoreRepository {
 		$query  = 'UPDATE %i SET ' . implode( ', ', $sets ) . ', version = version + 1 WHERE id = %d AND version = %d';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- columns come from WRITABLE; prepared by the helper.
 		$updated = $this->db->query( self::prepared( $this->db, $query, $this->stores(), ...array_merge( $values, array( EventPayloadSerializer::format( $now ), $id, $expected ) ) ) );
+
+		return 1 === $updated;
+	}
+
+	/**
+	 * Clears a store's logo or banner where it's an attachment that was deleted.
+	 *
+	 * @param int               $id            Store ID.
+	 * @param int               $attachment_id Attachment.
+	 * @param DateTimeImmutable $now           Current time.
+	 * @return bool Whether the store used it.
+	 */
+	public function forgetImage( int $id, int $attachment_id, DateTimeImmutable $now ): bool {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the module's own table.
+		$updated = $this->db->query( self::prepared( $this->db, 'UPDATE %i SET logo_id = IF(logo_id = %d, NULL, logo_id), banner_id = IF(banner_id = %d, NULL, banner_id), updated_at = %s, version = version + 1 WHERE id = %d AND ( logo_id = %d OR banner_id = %d )', $this->stores(), $attachment_id, $attachment_id, EventPayloadSerializer::format( $now ), $id, $attachment_id, $attachment_id ) );
 
 		return 1 === $updated;
 	}

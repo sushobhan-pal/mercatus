@@ -75,6 +75,15 @@ final class EventPayloadSerializerTest extends TestCase {
 		$this->event( $payload );
 	}
 
+	public function testOnlyBulkEventsWaitForALaterTime(): void {
+		$later = new DateTimeImmutable( '2026-11-20 00:00:00', new DateTimeZone( 'UTC' ) );
+		$bulk  = new DomainEvent( 'catalog.offer.price_changed', 'id-1', new DateTimeImmutable(), 'product', '7', 0, ActorRef::system(), 'req_abc', array(), 1, EventLane::Bulk, 'offer_proj:7', $later );
+		$this->assertSame( $later, $bulk->availableAt );
+
+		$this->expectException( InvalidArgumentException::class );
+		new DomainEvent( 'catalog.offer.price_changed', 'id-2', new DateTimeImmutable(), 'product', '7', 0, ActorRef::system(), 'req_abc', array(), 1, EventLane::Critical, null, $later );
+	}
+
 	public function testRefusesACorruptRow(): void {
 		$row            = ( new EventPayloadSerializer() )->toRow( $this->event( array() ), new DateTimeImmutable() );
 		$row['payload'] = '{not json';

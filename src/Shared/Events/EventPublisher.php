@@ -26,7 +26,8 @@ interface EventPublisher {
 	 * @param int                  $schema_version   Payload schema version.
 	 * @param EventLane            $lane             Outbox lane.
 	 * @param string|null          $coalesce_key     Coalesce key for bulk events.
+	 * @param \DateTimeImmutable|null $available_at When a bulk event may be handled, if later than now.
 	 * @throws \LogicException When no transaction is running.
 	 */
-	public function publish( string $name, string $aggregate_type, int|string $aggregate_id, int $aggregate_version, array $payload, int $schema_version = 1, EventLane $lane = EventLane::Critical, ?string $coalesce_key = null ): DomainEvent;
+	public function publish( string $name, string $aggregate_type, int|string $aggregate_id, int $aggregate_version, array $payload, int $schema_version = 1, EventLane $lane = EventLane::Critical, ?string $coalesce_key = null, ?\DateTimeImmutable $available_at = null ): DomainEvent;
 }

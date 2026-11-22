@@ -13,7 +13,9 @@ use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Contracts\Location\Geocoder;
+use Mercatus\Core\Contracts\Media\MediaOwnership;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
+use Mercatus\Core\Infrastructure\Content\RichText;
 use Mercatus\Core\Shared\Audit\AuditLog;
 use Mercatus\Core\Shared\Clock\Clock;
 use Mercatus\Core\Shared\Errors\DomainError;
@@ -45,25 +47,6 @@ final class Stores implements StoreDirectory {
 	private const TTL = 3600;
 
 	/**
-	 * The rich-text allow-list for descriptions (STO-5), applied on save and again on output.
-	 */
-	public const RICH_TEXT = array(
-		'p'      => array(),
-		'br'     => array(),
-		'strong' => array(),
-		'em'     => array(),
-		'b'      => array(),
-		'i'      => array(),
-		'ul'     => array(),
-		'ol'     => array(),
-		'li'     => array(),
-		'a'      => array(
-			'href'  => true,
-			'title' => true,
-		),
-	);
-
-	/**
 	 * Store status by vendor event (STO-2).
 	 */
 	public const FOLLOWS = array(
@@ -86,6 +69,7 @@ final class Stores implements StoreDirectory {
 	 * @param Clock              $clock        Clock.
 	 * @param CachePort          $cache        Cache.
 	 * @param StoreUrls          $urls         Store page addresses.
+	 * @param MediaOwnership     $media        Whose media an image is, for the logo and banner (STO-12).
 	 */
 	public function __construct(
 		private StoreRepository $stores,
@@ -99,6 +83,7 @@ final class Stores implements StoreDirectory {
 		private Clock $clock,
 		private CachePort $cache,
 		private StoreUrls $urls,
+		private MediaOwnership $media,
 	) {}
 
 	/**
@@ -155,6 +140,38 @@ final class Stores implements StoreDirectory {
 		);
 		$this->cache->bumpRevision( self::slugScope( $slug ) );
 		$this->cache->bumpRevision( self::vendorScope( $vendor_id ) );
+	}
+
+	/**
+	 * Forgets a deleted image the store used as its logo or banner (STO-12, CTL-14).
+	 *
+	 * @param int $vendor_id     Vendor.
+	 * @param int $attachment_id Attachment.
+	 */
+	public function forgetImage( int $vendor_id, int $attachment_id ): void {
+		$pair = $this->stores->byVendorId( $vendor_id );
+		if ( null === $pair ) {
+			return;
+		}
+		$store = $pair[0];
+		$this->transactions->run(
+			function () use ( $store, $attachment_id ): void {
+				if ( $this->stores->forgetImage( $store->id, $attachment_id, $this->clock->now() ) ) {
+					$this->events->publish(
+						'store.store.updated',
+						'store',
+						$store->id,
+						$store->version + 1,
+						array(
+							'store_id' => $store->id,
+							'fields'   => array_values( array_filter( array( $store->logoId === $attachment_id ? 'logo_id' : '', $store->bannerId === $attachment_id ? 'banner_id' : '' ) ) ),
+						)
+					);
+					$this->audit->record( 'store.updated', 'store', $store->id, array( 'fields' => 'images' ) );
+				}
+			}
+		);
+		$this->changed( $store->id );
 	}
 
 	/**
@@ -258,6 +275,19 @@ final class Stores implements StoreDirectory {
 		return $this->apply( $this->allowed( $this->resolve( $store ), StorePolicy::MANAGE ), $changes, $expected, false );
 	}
 
+	/**
+	 * A vendor's store with its default location, from the cache, for other modules: the catalog's offers sit
+	 * at the default location and follow the store (CTL-13).
+	 *
+	 * @param int $vendor_id Vendor.
+	 * @return array{0: Store, 1: Location|null}|null
+	 */
+	public function ofVendor( int $vendor_id ): ?array {
+		$id = $this->idForVendor( $vendor_id );
+
+		return $id > 0 ? $this->cached( $id ) : null;
+	}
+
 	public function summary( int $vendor_id ): ?array {
 		$id   = $this->idForVendor( $vendor_id );
 		$pair = $id > 0 ? $this->cached( $id ) : null;
@@ -358,6 +388,12 @@ final class Stores implements StoreDirectory {
 				throw DomainError::of( 'mercatus_store_slug_taken', array( 'field' => 'slug' ) );
 			}
 		}
+		foreach ( StoreProfile::IMAGES as $field ) {
+			// A logo or banner is the store's vendor's own media, whoever sets it (STO-12, CTL-14).
+			if ( is_int( $valid[ $field ] ?? null ) && ! $this->media->owns( $store->vendorId, $valid[ $field ] ) ) {
+				throw DomainError::of( 'mercatus_store_invalid', array( 'field' => $field ) );
+			}
+		}
 		if ( $store->version !== $expected ) {
 			throw DomainError::of( 'mercatus_version_conflict', array( 'store_id' => $store->id ) );
 		}
@@ -450,7 +486,7 @@ final class Stores implements StoreDirectory {
 				continue;
 			}
 			$changes[ $field ] = match ( true ) {
-				'description' === $field             => wp_unslash( wp_rel_ugc( wp_slash( wp_kses( $value, self::RICH_TEXT ) ) ) ),
+				'description' === $field             => RichText::clean( $value ),
 				str_starts_with( $field, 'policy_' ) => sanitize_textarea_field( $value ),
 				default                              => sanitize_text_field( $value ),
 			};
