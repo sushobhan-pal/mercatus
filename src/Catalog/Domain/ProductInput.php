@@ -34,6 +34,8 @@ final class ProductInput {
 
 	public const TAGS_MAX = 20;
 
+	public const IMAGES_MAX = 20;
+
 	public const TERM_MAX = 50;
 
 	public const ATTRIBUTES_MAX = 10;
@@ -49,12 +51,12 @@ final class ProductInput {
 	/**
 	 * Fields a change may name; `type` and `stock` only when creating.
 	 */
-	public const FIELDS = array( 'type', 'name', 'description', 'short_description', 'sku', 'virtual', 'weight', 'length', 'width', 'height', 'categories', 'tags', 'regular_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'attributes', 'variations', 'stock' );
+	public const FIELDS = array( 'type', 'name', 'description', 'short_description', 'sku', 'virtual', 'weight', 'length', 'width', 'height', 'categories', 'tags', 'images', 'regular_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'attributes', 'variations', 'stock' );
 
 	/**
 	 * Fields a variation may name.
 	 */
-	public const VARIATION_FIELDS = array( 'id', 'attributes', 'sku', 'description', 'virtual', 'weight', 'length', 'width', 'height', 'enabled', 'regular_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock' );
+	public const VARIATION_FIELDS = array( 'id', 'attributes', 'sku', 'description', 'virtual', 'weight', 'length', 'width', 'height', 'enabled', 'image_id', 'regular_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock' );
 
 	/**
 	 * The valid, normalised fields of a create or a change. Prices come back under `prices`, as decimals,
@@ -85,6 +87,7 @@ final class ProductInput {
 				in_array( $field, self::DIMENSIONS, true )    => self::dimension( $field, $value ),
 				'categories' === $field                       => self::ids( $field, $value, self::CATEGORIES_MAX ),
 				'tags' === $field                             => self::names( $field, $value, self::TAGS_MAX ),
+				'images' === $field                           => self::ids( $field, $value, self::IMAGES_MAX ),
 				'attributes' === $field                       => Product::VARIABLE === $type ? self::attributes( $value ) : throw self::invalid( $field ),
 				'variations' === $field                       => Product::VARIABLE === $type ? self::variations( $value, $creating ) : throw self::invalid( $field ),
 				'stock' === $field                            => $creating && Product::SIMPLE === $type ? self::stock( $value ) : throw self::invalid( $field ),
@@ -381,6 +384,7 @@ final class ProductInput {
 					'description' === $field                   => self::text( 'variations', $field_value, self::SHORT_DESCRIPTION_MAX, false ),
 					in_array( $field, array( 'virtual', 'enabled' ), true ) => is_bool( $field_value ) ? $field_value : throw self::invalid( 'variations' ),
 					in_array( $field, self::DIMENSIONS, true ) => self::dimension( 'variations', $field_value ),
+					'image_id' === $field                      => is_int( $field_value ) && $field_value >= 0 ? $field_value : throw self::invalid( 'variations' ),
 					default                                    => $creating || 0 === ( $variation['id'] ?? 0 ) ? self::stock( $field_value ) : throw self::invalid( 'variations' ),
 				};
 			}

@@ -127,9 +127,11 @@ final class OpenApiGenerator {
 			if ( array() !== $route->required ) {
 				$body['required'] = $route->required;
 			}
+			// A file upload is a multipart form; everything else takes JSON.
+			$binary                   = array() !== array_filter( $route->arguments, static fn( array $schema ): bool => 'binary' === ( $schema['format'] ?? null ) );
 			$operation['requestBody'] = array(
 				'required' => array() !== $route->required,
-				'content'  => array( 'application/json' => array( 'schema' => $body ) ),
+				'content'  => array( ( $binary ? 'multipart/form-data' : 'application/json' ) => array( 'schema' => $body ) ),
 			);
 		}
 		if ( array() !== $parameters ) {

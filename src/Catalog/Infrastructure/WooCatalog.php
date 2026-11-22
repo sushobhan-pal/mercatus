@@ -334,6 +334,7 @@ final class WooCatalog {
 					'width'       => (string) $child->get_width( 'edit' ),
 					'height'      => (string) $child->get_height( 'edit' ),
 					'enabled'     => 'publish' === $child->get_status( 'edit' ),
+					'image'       => self::image( (int) $child->get_image_id( 'edit' ) ),
 				);
 			}
 		}
@@ -352,10 +353,59 @@ final class WooCatalog {
 			'height'            => (string) $product->get_height( 'edit' ),
 			'categories'        => array_values( array_map( 'intval', $product->get_category_ids( 'edit' ) ) ),
 			'tags'              => array_values( array_map( array( self::class, 'tagName' ), array_map( 'intval', $product->get_tag_ids( 'edit' ) ) ) ),
+			'images'            => array_values( array_filter( array_map( array( self::class, 'image' ), array_merge( array( (int) $product->get_image_id( 'edit' ) ), array_map( 'intval', $product->get_gallery_image_ids( 'edit' ) ) ) ) ) ),
 			'attributes'        => $attributes,
 			'variations'        => $variations,
 			'status'            => $product->get_status( 'edit' ),
 			'url'               => (string) get_permalink( $product->get_id() ),
+		);
+	}
+
+	/**
+	 * The products whose image, gallery or variation image is an attachment.
+	 *
+	 * @param int $attachment_id Attachment.
+	 * @return list<int> WooCommerce product IDs.
+	 */
+	public function productsUsingImage( int $attachment_id ): array {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- a read of WooCommerce's image meta, only when an image is deleted.
+		$posts    = $wpdb->get_col( (string) $wpdb->prepare( "SELECT DISTINCT post_id FROM %i WHERE ( meta_key = '_thumbnail_id' AND meta_value = %s ) OR ( meta_key = '_product_image_gallery' AND FIND_IN_SET( %s, meta_value ) > 0 )", $wpdb->postmeta, (string) $attachment_id, (string) $attachment_id ) );
+		$products = array();
+		foreach ( $posts as $post ) {
+			$parent     = wp_get_post_parent_id( (int) $post );
+			$products[] = is_int( $parent ) && $parent > 0 && 'product_variation' === get_post_type( (int) $post ) ? $parent : (int) $post;
+		}
+
+		return array_values( array_unique( $products ) );
+	}
+
+	/**
+	 * Removes an image from a product: its image, its gallery and its variations' images.
+	 *
+	 * @param int $id            WooCommerce product.
+	 * @param int $attachment_id Attachment.
+	 */
+	public function forgetImage( int $id, int $attachment_id ): void {
+		$this->write(
+			null,
+			function () use ( $id, $attachment_id ): array {
+				$product = $this->product( $id );
+				if ( (int) $product->get_image_id( 'edit' ) === $attachment_id ) {
+					$product->set_image_id( '' );
+				}
+				$product->set_gallery_image_ids( array_values( array_diff( array_map( 'intval', $product->get_gallery_image_ids( 'edit' ) ), array( $attachment_id ) ) ) );
+				$product->save();
+				foreach ( $product->get_children() as $child_id ) {
+					$child = wc_get_product( $child_id );
+					if ( $child instanceof WC_Product_Variation && (int) $child->get_image_id( 'edit' ) === $attachment_id ) {
+						$child->set_image_id( '' );
+						$child->save();
+					}
+				}
+
+				return array();
+			}
 		);
 	}
 
@@ -477,6 +527,8 @@ final class WooCatalog {
 				'categories'        => $product->set_category_ids( is_array( $value ) ? array_map( 'intval', $value ) : array() ),
 				'tags'              => $product->set_tag_ids( $this->tagIds( is_array( $value ) ? array_map( 'strval', $value ) : array() ) ),
 				'attributes'        => $product->set_attributes( $this->attributes( is_array( $value ) ? $value : array() ) ),
+				'images'            => self::setImages( $product, is_array( $value ) ? array_values( array_map( 'intval', $value ) ) : array() ),
+				'image_id'          => $product->set_image_id( is_int( $value ) && $value > 0 ? $value : '' ),
 				default             => null,
 			};
 		}
@@ -501,7 +553,7 @@ final class WooCatalog {
 		if ( isset( $content['attributes'] ) && is_array( $content['attributes'] ) ) {
 			$variation->set_attributes( $this->chosen( $parent_id, $content['attributes'] ) );
 		}
-		$this->apply( $variation, array_intersect_key( $content, array_flip( array( 'sku', 'description', 'virtual', 'weight', 'length', 'width', 'height' ) ) ) );
+		$this->apply( $variation, array_intersect_key( $content, array_flip( array( 'sku', 'description', 'virtual', 'weight', 'length', 'width', 'height', 'image_id' ) ) ) );
 		if ( isset( $content['enabled'] ) ) {
 			$variation->set_status( true === $content['enabled'] ? 'publish' : 'private' );
 		} elseif ( 0 === $id ) {
@@ -636,6 +688,38 @@ final class WooCatalog {
 		$shared = wc_get_attribute( $attribute->get_id() );
 
 		return null === $shared ? wc_attribute_label( $attribute->get_name() ) : (string) $shared->name;
+	}
+
+	/**
+	 * Sets a product's images: the first is its image, the rest its gallery.
+	 *
+	 * @param WC_Product $product Product.
+	 * @param list<int>  $ids     Attachment IDs.
+	 */
+	private static function setImages( WC_Product $product, array $ids ): void {
+		$product->set_image_id( $ids[0] ?? '' );
+		$product->set_gallery_image_ids( array_slice( $ids, 1 ) );
+	}
+
+	/**
+	 * An image for a form or a card: its ID, its full and thumbnail addresses, and its alt text.
+	 *
+	 * @param int $id Attachment ID, or 0.
+	 * @return array{id: int, url: string, thumbnail: string, alt: string}|null Null when there's none.
+	 */
+	private static function image( int $id ): ?array {
+		$full      = $id > 0 ? wp_get_attachment_image_src( $id, 'full' ) : false;
+		$thumbnail = $id > 0 ? wp_get_attachment_image_src( $id, 'woocommerce_thumbnail' ) : false;
+		if ( false === $full ) {
+			return null;
+		}
+
+		return array(
+			'id'        => $id,
+			'url'       => (string) $full[0],
+			'thumbnail' => false === $thumbnail ? (string) $full[0] : (string) $thumbnail[0],
+			'alt'       => (string) get_post_meta( $id, '_wp_attachment_image_alt', true ),
+		);
 	}
 
 	/**

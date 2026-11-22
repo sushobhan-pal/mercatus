@@ -134,15 +134,27 @@ final class IdempotentRequests {
 	}
 
 	/**
-	 * The hash of a request's method, route and canonical body.
+	 * The hash of a request's method, route and canonical body, with the content of any uploaded file, so the
+	 * same key with another file is a different request.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 */
 	private static function hash( WP_REST_Request $request ): string {
-		$json = $request->get_json_params();
-		$body = array() !== $json ? $json : $request->get_body_params();
+		$json  = $request->get_json_params();
+		$body  = array() !== $json ? $json : $request->get_body_params();
+		$files = array();
+		foreach ( $request->get_file_params() as $field => $file ) {
+			/**
+			 * PHP gives a list here for a field that takes several files.
+			 *
+			 * @var mixed $path
+			 */
+			$path            = $file['tmp_name'];
+			$files[ $field ] = is_string( $path ) && is_file( $path ) ? (string) hash_file( 'sha256', $path ) : '';
+		}
+		$canonical = $request->get_method() . "\n" . $request->get_route() . "\n" . wp_json_encode( self::canonical( $body ) );
 
-		return hash( 'sha256', $request->get_method() . "\n" . $request->get_route() . "\n" . wp_json_encode( self::canonical( $body ) ) );
+		return hash( 'sha256', array() === $files ? $canonical : $canonical . "\n" . wp_json_encode( self::canonical( $files ) ) );
 	}
 
 	/**

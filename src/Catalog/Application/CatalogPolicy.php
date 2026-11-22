@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Mercatus\Core\Catalog\Application;
 
+use Mercatus\Core\Catalog\Domain\Media;
 use Mercatus\Core\Catalog\Domain\Product;
 use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\ActorIdentity;
@@ -17,10 +18,11 @@ use Mercatus\Core\Contracts\Identity\ResourcePolicy;
 use Mercatus\Core\Identity\Domain\PolicyEngine;
 
 /**
- * The third `ResourcePolicy` (IDN-14), for products and their offers. Anyone sees an approved product; its
- * vendor sees and changes it; administrators, and managers holding products.moderate within their scope,
- * moderate vendors' products. The marketplace's own products belong to no vendor and aren't moderated: they
- * are managed in WooCommerce (CTL-23). Anyone else is told the product doesn't exist (SEC-4).
+ * The third `ResourcePolicy` (IDN-14), for products, their offers and media. A vendor's media is theirs alone.
+ * Anyone sees an approved product; its vendor sees and changes it; administrators, and managers holding
+ * products.moderate within their scope, moderate vendors' products. The marketplace's own products belong to no
+ * vendor and aren't moderated: they are managed in WooCommerce (CTL-23). Anyone else is told the product or
+ * media doesn't exist (SEC-4).
  */
 final class CatalogPolicy implements ResourcePolicy {
 
@@ -40,6 +42,9 @@ final class CatalogPolicy implements ResourcePolicy {
 	public const MODERATE = 'moderate';
 
 	public function decide( ActorIdentity $actor, string $action, object $subject ): AccessDecision {
+		if ( $subject instanceof Media ) {
+			return in_array( $action, array( self::VIEW, self::EDIT ), true ) && $actor->vendorId === $subject->vendorId ? PolicyEngine::vendorResource( $actor, $subject->vendorId, null ) : AccessDecision::NotFound;
+		}
 		if ( ! $subject instanceof Product || Product::DELETED === $subject->status ) {
 			return AccessDecision::NotFound;
 		}

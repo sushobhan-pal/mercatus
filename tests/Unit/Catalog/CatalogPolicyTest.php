@@ -11,6 +11,7 @@ namespace Mercatus\Core\Tests\Unit\Catalog;
 
 use Mercatus\Core\Catalog\Application\CatalogAccess;
 use Mercatus\Core\Catalog\Application\CatalogPolicy;
+use Mercatus\Core\Catalog\Domain\Media;
 use Mercatus\Core\Catalog\Domain\Product;
 use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\ActorIdentity;
@@ -84,6 +85,21 @@ final class CatalogPolicyTest extends TestCase {
 		$this->assertSame( AccessDecision::NotFound, $policy->decide( self::owner(), CatalogPolicy::EDIT, self::product( Product::DELETED ) ) );
 		$this->assertSame( AccessDecision::NotFound, $policy->decide( new ActorIdentity( ActorType::Administrator, 1 ), CatalogPolicy::VIEW, new \stdClass() ) );
 		$this->assertSame( AccessDecision::NotFound, $policy->decide( self::owner(), 'publish-everything', self::product() ) );
+	}
+
+	public function testAVendorsImagesAreTheirsAlone(): void {
+		$policy = new CatalogPolicy();
+		$media  = new Media( 55, self::VENDOR, '2026/11/map.jpg', '2026/11/map-150x150.jpg', 'image/jpeg', 2048, 40, 30, '2026-11-22 10:00:00.000' );
+
+		foreach ( array( CatalogPolicy::VIEW, CatalogPolicy::EDIT ) as $action ) {
+			$this->assertSame( AccessDecision::Allowed, $policy->decide( self::owner(), $action, $media ), $action );
+			$this->assertSame( AccessDecision::Allowed, $policy->decide( new ActorIdentity( ActorType::VendorStaff, 9, self::VENDOR ), $action, $media ), $action . ': the store\'s staff.' );
+			$this->assertSame( AccessDecision::NotFound, $policy->decide( new ActorIdentity( ActorType::VendorOwner, 8, 99 ), $action, $media ), $action . ': another vendor.' );
+			$this->assertSame( AccessDecision::NotFound, $policy->decide( new ActorIdentity( ActorType::Administrator, 1 ), $action, $media ), $action . ': administrators use WordPress\'s media library.' );
+			$this->assertSame( AccessDecision::NotFound, $policy->decide( self::manager( array( CatalogAccess::MODERATE ) ), $action, $media ), $action . ': moderators too.' );
+			$this->assertSame( AccessDecision::NotFound, $policy->decide( new ActorIdentity( ActorType::Customer, 7 ), $action, $media ), $action . ': a customer.' );
+		}
+		$this->assertSame( AccessDecision::NotFound, $policy->decide( self::owner(), CatalogPolicy::MODERATE, $media ), 'Images aren\'t moderated.' );
 	}
 
 	/**

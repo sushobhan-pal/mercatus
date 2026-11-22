@@ -1016,6 +1016,294 @@ paths:
           applicationPassword: []
       x-mercatus-access: authenticated
       x-mercatus-resource: app_password
+  /me/media:
+    get:
+      operationId: getMeMedia
+      summary: 'Your images, newest first'
+      tags:
+        - me
+      parameters:
+        -
+          name: orderby
+          in: query
+          required: false
+          description: 'Sort column.'
+          schema:
+            type: string
+            enum:
+              - created_at
+        -
+          name: order
+          in: query
+          required: false
+          description: 'Sort direction.'
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        -
+          name: per_page
+          in: query
+          required: false
+          description: 'Items per page.'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          required: false
+          description: 'Where the previous page ended (next_cursor).'
+          schema:
+            type: string
+            maxLength: 512
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - per_page
+                  - next_cursor
+                  - has_more
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: 'The attachment ID.'
+                        url:
+                          type: string
+                        thumbnail_url:
+                          type: string
+                        mime:
+                          type: string
+                        bytes:
+                          type: integer
+                          description: 'With the sizes made of it, as counted against your space.'
+                        width:
+                          type: integer
+                        height:
+                          type: integer
+                        created_at:
+                          type: string
+                      required:
+                        - id
+                        - url
+                        - thumbnail_url
+                        - mime
+                        - bytes
+                        - width
+                        - height
+                        - created_at
+                  per_page:
+                    type: integer
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                  has_more:
+                    type: boolean
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: media
+    post:
+      operationId: postMeMedia
+      summary: 'Upload an image, as the multipart field file'
+      tags:
+        - me
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 'The image: JPEG, PNG, GIF or WebP, or AVIF where the server can process it. /me lists what this server accepts.'
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The attachment ID.'
+                  url:
+                    type: string
+                  thumbnail_url:
+                    type: string
+                  mime:
+                    type: string
+                  bytes:
+                    type: integer
+                    description: 'With the sizes made of it, as counted against your space.'
+                  width:
+                    type: integer
+                  height:
+                    type: integer
+                  created_at:
+                    type: string
+                required:
+                  - id
+                  - url
+                  - thumbnail_url
+                  - mime
+                  - bytes
+                  - width
+                  - height
+                  - created_at
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: media
+  '/me/media/{id}':
+    delete:
+      operationId: deleteMeMediaId
+      summary: 'Delete one of your images, from your products and store too'
+      tags:
+        - me
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The attachment ID.'
+                  url:
+                    type: string
+                  thumbnail_url:
+                    type: string
+                  mime:
+                    type: string
+                  bytes:
+                    type: integer
+                    description: 'With the sizes made of it, as counted against your space.'
+                  width:
+                    type: integer
+                  height:
+                    type: integer
+                  created_at:
+                    type: string
+                required:
+                  - id
+                  - url
+                  - thumbnail_url
+                  - mime
+                  - bytes
+                  - width
+                  - height
+                  - created_at
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: media
+    get:
+      operationId: getMeMediaId
+      summary: 'One of your images'
+      tags:
+        - me
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^\d+$
+      responses:
+        2XX:
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 'The attachment ID.'
+                  url:
+                    type: string
+                  thumbnail_url:
+                    type: string
+                  mime:
+                    type: string
+                  bytes:
+                    type: integer
+                    description: 'With the sizes made of it, as counted against your space.'
+                  width:
+                    type: integer
+                  height:
+                    type: integer
+                  created_at:
+                    type: string
+                required:
+                  - id
+                  - url
+                  - thumbnail_url
+                  - mime
+                  - bytes
+                  - width
+                  - height
+                  - created_at
+        4XX:
+          $ref: '#/components/responses/Error'
+        5XX:
+          $ref: '#/components/responses/Error'
+      security:
+        -
+          cookieNonce: []
+        -
+          applicationPassword: []
+      x-mercatus-access: tenant
+      x-mercatus-resource: media
   '/me/offers/{id}/inventory':
     patch:
       operationId: patchMeOffersIdInventory
@@ -1122,6 +1410,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -1184,6 +1477,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -1328,6 +1622,11 @@ paths:
                           type:
                             - string
                             - 'null'
+                        image:
+                          description: 'In the list only.'
+                          type:
+                            - object
+                            - 'null'
                         url:
                           type: string
                         updated_at:
@@ -1387,6 +1686,11 @@ paths:
                           type: array
                           items:
                             type: string
+                        images:
+                          description: 'From a create only.'
+                          type: array
+                          items:
+                            type: object
                         attributes:
                           description: 'From a create only.'
                           type: array
@@ -1496,6 +1800,12 @@ paths:
                   items:
                     type: string
                   description: 'Tag names; a new one is created.'
+                images:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: integer
+                  description: "IDs of your uploaded images: the first is the product's image, the rest its gallery."
                 attributes:
                   type: array
                   maxItems: 10
@@ -1507,7 +1817,7 @@ paths:
                   maxItems: 100
                   items:
                     type: object
-                  description: "A variable product's variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled and prices."
+                  description: "A variable product's variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled, image_id (one of your images, or 0) and prices."
                 weight:
                   type: string
                   description: "A decimal, or ''."
@@ -1587,6 +1897,11 @@ paths:
                     type:
                       - string
                       - 'null'
+                  image:
+                    description: 'In the list only.'
+                    type:
+                      - object
+                      - 'null'
                   url:
                     type: string
                   updated_at:
@@ -1646,6 +1961,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    description: 'From a create only.'
+                    type: array
+                    items:
+                      type: object
                   attributes:
                     description: 'From a create only.'
                     type: array
@@ -1798,6 +2118,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -1860,6 +2185,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -1972,6 +2298,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -2034,6 +2365,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -2096,6 +2428,12 @@ paths:
                   items:
                     type: string
                   description: 'Tag names; a new one is created.'
+                images:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: integer
+                  description: "IDs of your uploaded images: the first is the product's image, the rest its gallery."
                 attributes:
                   type: array
                   maxItems: 10
@@ -2107,7 +2445,7 @@ paths:
                   maxItems: 100
                   items:
                     type: object
-                  description: "A variable product's variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled and prices."
+                  description: "A variable product's variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled, image_id (one of your images, or 0) and prices."
                 weight:
                   type: string
                   description: "A decimal, or ''."
@@ -2216,6 +2554,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -2278,6 +2621,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -2391,6 +2735,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -2453,6 +2802,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -2566,6 +2916,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -2628,6 +2983,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -2802,6 +3158,16 @@ paths:
                 address:
                   type: object
                   description: "The default location's address: address_1, address_2, city, state, postcode and country (ISO 3166-1 alpha-2)."
+                logo_id:
+                  type:
+                    - integer
+                    - 'null'
+                  description: "An image the store's vendor uploaded, or null to clear it."
+                banner_id:
+                  type:
+                    - integer
+                    - 'null'
+                  description: "An image the store's vendor uploaded, or null to clear it."
                 tagline:
                   type: string
                   maxLength: 191
@@ -3176,6 +3542,11 @@ paths:
                           type:
                             - string
                             - 'null'
+                        image:
+                          type:
+                            - object
+                            - 'null'
+                          description: "The product's image: id, url, thumbnail and alt."
                         url:
                           type: string
                         updated_at:
@@ -3300,6 +3671,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -3362,6 +3738,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -3476,6 +3853,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -3538,6 +3920,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -3666,6 +4049,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -3728,6 +4116,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -3856,6 +4245,11 @@ paths:
                     type: array
                     items:
                       type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                    description: "id, url, thumbnail and alt of each image; the first is the product's image."
                   attributes:
                     type: array
                     items:
@@ -3918,6 +4312,7 @@ paths:
                   - height
                   - categories
                   - tags
+                  - images
                   - attributes
                   - variations
                   - stock
@@ -4516,6 +4911,16 @@ paths:
                 address:
                   type: object
                   description: "The default location's address: address_1, address_2, city, state, postcode and country (ISO 3166-1 alpha-2)."
+                logo_id:
+                  type:
+                    - integer
+                    - 'null'
+                  description: "An image the store's vendor uploaded, or null to clear it."
+                banner_id:
+                  type:
+                    - integer
+                    - 'null'
+                  description: "An image the store's vendor uploaded, or null to clear it."
                 tagline:
                   type: string
                   maxLength: 191

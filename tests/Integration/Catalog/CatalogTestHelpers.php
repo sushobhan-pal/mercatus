@@ -129,6 +129,120 @@ trait CatalogTestHelpers {
 	}
 
 	/**
+	 * Uploads an image as the current vendor.
+	 *
+	 * @param string|null      $bytes  The file; a small JPEG by default.
+	 * @param non-empty-string $name   The name it's uploaded with.
+	 * @param int              $status Expected status.
+	 * @return array<string, mixed>
+	 */
+	private function uploadImage( ?string $bytes = null, string $name = 'map.jpg', int $status = 201 ): array {
+		return $this->data( $this->upload( $bytes ?? self::jpeg(), $name ), $status );
+	}
+
+	/**
+	 * Sends a file to the upload endpoint as the current user, the way PHP hands an upload to WordPress. The
+	 * type the browser claims is always image/jpeg: it's never trusted.
+	 *
+	 * @param string                $bytes   The file.
+	 * @param non-empty-string      $name    The name it's uploaded with.
+	 * @param array<string, string> $headers Headers.
+	 * @throws RuntimeException When there's no temporary file.
+	 */
+	private function upload( string $bytes, string $name, array $headers = array() ): WP_REST_Response {
+		$path = wp_tempnam( 'mercatus-upload' );
+		if ( '' === $path ) {
+			throw new RuntimeException( 'No temporary file.' );
+		}
+		file_put_contents( $path, $bytes ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- a test's upload.
+		$request = new WP_REST_Request( 'POST', '/mercatus/v1/me/media' );
+		$request->set_file_params(
+			array(
+				'file' => array(
+					'name'     => $name,
+					'type'     => 'image/jpeg',
+					'tmp_name' => $path,
+					'error'    => UPLOAD_ERR_OK,
+					'size'     => strlen( $bytes ),
+				),
+			)
+		);
+		foreach ( $headers as $header => $value ) {
+			$request->set_header( $header, $value );
+		}
+		$response = rest_do_request( $request );
+		wp_delete_file( $path );
+
+		return $response;
+	}
+
+	/**
+	 * A small JPEG.
+	 *
+	 * @param int $width  Width.
+	 * @param int $height Height.
+	 */
+	private static function jpeg( int $width = 40, int $height = 30 ): string {
+		return self::image( 'imagejpeg', $width, $height );
+	}
+
+	/**
+	 * A small PNG.
+	 */
+	private static function png(): string {
+		return self::image( 'imagepng', 40, 30 );
+	}
+
+	/**
+	 * An image made with GD.
+	 *
+	 * @param callable(\GdImage): bool $save   imagejpeg or imagepng.
+	 * @param int                      $width  Width.
+	 * @param int                      $height Height.
+	 * @throws RuntimeException When GD can't.
+	 */
+	private static function image( callable $save, int $width, int $height ): string {
+		$image = imagecreatetruecolor( max( 1, $width ), max( 1, $height ) );
+		if ( false === $image ) {
+			throw new RuntimeException( 'GD could not make an image.' );
+		}
+		imagefill( $image, 0, 0, (int) imagecolorallocate( $image, 200, 120, 40 ) );
+		ob_start();
+		$save( $image );
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * An attachment no vendor uploaded, such as one of the site's own.
+	 */
+	private static function siteAttachment(): int {
+		return wp_insert_attachment(
+			array(
+				'post_mime_type' => 'image/jpeg',
+				'post_title'     => 'Site image',
+				'post_status'    => 'inherit',
+			)
+		);
+	}
+
+	/**
+	 * How many attachments exist.
+	 */
+	private static function attachmentCount(): int {
+		return count(
+			get_posts(
+				array(
+					'post_type'   => 'attachment',
+					'post_status' => 'any',
+					'numberposts' => -1,
+					'fields'      => 'ids',
+				)
+			)
+		);
+	}
+
+	/**
 	 * A WooCommerce product or variation that must exist.
 	 *
 	 * @param int $id Its ID.

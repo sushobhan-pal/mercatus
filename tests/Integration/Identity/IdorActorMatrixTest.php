@@ -50,6 +50,7 @@ final class IdorActorMatrixTest extends WP_UnitTestCase {
 		foreach ( $this->limits as $key => $limit ) {
 			self::kernel()->settings()->set( $key, $limit );
 		}
+		$this->remove_added_uploads();
 		parent::tear_down();
 	}
 
@@ -81,12 +82,14 @@ final class IdorActorMatrixTest extends WP_UnitTestCase {
 	private function anotherStoresResources(): array {
 		$this->vendorWithStore( 'Owner Maps' );
 		$product = $this->createProduct();
+		$image   = $this->uploadImage();
 		$etag    = $this->etag( $this->request( 'GET', '/me/products/' . $product['id'] ) );
 
 		return array(
 			'ids'      => array(
 				'product' => (int) $product['id'],
 				'offer'   => (int) $product['offer']['id'],
+				'media'   => (int) $image['id'],
 			),
 			'params'   => array(
 				'offer' => array(

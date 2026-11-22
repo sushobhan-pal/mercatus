@@ -13,6 +13,7 @@ use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Identity\AccessDecision;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Contracts\Location\Geocoder;
+use Mercatus\Core\Contracts\Media\MediaOwnership;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Infrastructure\Content\RichText;
 use Mercatus\Core\Shared\Audit\AuditLog;
@@ -68,6 +69,7 @@ final class Stores implements StoreDirectory {
 	 * @param Clock              $clock        Clock.
 	 * @param CachePort          $cache        Cache.
 	 * @param StoreUrls          $urls         Store page addresses.
+	 * @param MediaOwnership     $media        Whose media an image is, for the logo and banner (STO-12).
 	 */
 	public function __construct(
 		private StoreRepository $stores,
@@ -81,6 +83,7 @@ final class Stores implements StoreDirectory {
 		private Clock $clock,
 		private CachePort $cache,
 		private StoreUrls $urls,
+		private MediaOwnership $media,
 	) {}
 
 	/**
@@ -137,6 +140,38 @@ final class Stores implements StoreDirectory {
 		);
 		$this->cache->bumpRevision( self::slugScope( $slug ) );
 		$this->cache->bumpRevision( self::vendorScope( $vendor_id ) );
+	}
+
+	/**
+	 * Forgets a deleted image the store used as its logo or banner (STO-12, CTL-14).
+	 *
+	 * @param int $vendor_id     Vendor.
+	 * @param int $attachment_id Attachment.
+	 */
+	public function forgetImage( int $vendor_id, int $attachment_id ): void {
+		$pair = $this->stores->byVendorId( $vendor_id );
+		if ( null === $pair ) {
+			return;
+		}
+		$store = $pair[0];
+		$this->transactions->run(
+			function () use ( $store, $attachment_id ): void {
+				if ( $this->stores->forgetImage( $store->id, $attachment_id, $this->clock->now() ) ) {
+					$this->events->publish(
+						'store.store.updated',
+						'store',
+						$store->id,
+						$store->version + 1,
+						array(
+							'store_id' => $store->id,
+							'fields'   => array_values( array_filter( array( $store->logoId === $attachment_id ? 'logo_id' : '', $store->bannerId === $attachment_id ? 'banner_id' : '' ) ) ),
+						)
+					);
+					$this->audit->record( 'store.updated', 'store', $store->id, array( 'fields' => 'images' ) );
+				}
+			}
+		);
+		$this->changed( $store->id );
 	}
 
 	/**
@@ -351,6 +386,12 @@ final class Stores implements StoreDirectory {
 			StoreSlugNormalizer::assertValid( $valid['slug'], $this->reservedSlugs() );
 			if ( null !== $this->stores->bySlug( $valid['slug'] ) ) {
 				throw DomainError::of( 'mercatus_store_slug_taken', array( 'field' => 'slug' ) );
+			}
+		}
+		foreach ( StoreProfile::IMAGES as $field ) {
+			// A logo or banner is the store's vendor's own media, whoever sets it (STO-12, CTL-14).
+			if ( is_int( $valid[ $field ] ?? null ) && ! $this->media->owns( $store->vendorId, $valid[ $field ] ) ) {
+				throw DomainError::of( 'mercatus_store_invalid', array( 'field' => $field ) );
 			}
 		}
 		if ( $store->version !== $expected ) {

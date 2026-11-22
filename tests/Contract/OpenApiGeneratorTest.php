@@ -158,6 +158,29 @@ final class OpenApiGeneratorTest extends TestCase {
 		$this->assertSame( array( 'name' ), $patch['requestBody']['content']['application/json']['schema']['required'] );
 	}
 
+	public function testDescribesAnUploadAsAMultipartForm(): void {
+		$operations = RouteOperations::fromRoutes(
+			array(
+				'/mercatus/v1/me/media' => array(
+					array(
+						'methods'  => array( 'POST' => true ),
+						'args'     => array(
+							'file' => array(
+								'type'   => 'string',
+								'format' => 'binary',
+							),
+						),
+						'mercatus' => array( 'access' => 'tenant' ),
+					),
+				),
+			)
+		);
+
+		$body = OpenApiGenerator::generate( $operations )['paths']['/me/media']['post']['requestBody']['content'];
+		$this->assertSame( array( 'multipart/form-data' ), array_keys( $body ) );
+		$this->assertSame( 'binary', $body['multipart/form-data']['schema']['properties']['file']['format'] );
+	}
+
 	public function testWritesYamlThatParsesBackWithEmptyMapsAndLists(): void {
 		$empty = OpenApiGenerator::yaml( OpenApiGenerator::generate( array() ) );
 		$full  = Yaml::parse( OpenApiGenerator::yaml( OpenApiGenerator::generate( $this->operations() ) ), Yaml::PARSE_OBJECT_FOR_MAP );

@@ -58,6 +58,7 @@ final class ProductSerializer {
 				'width'       => $item['width'],
 				'height'      => $item['height'],
 				'enabled'     => null === $own ? (bool) $item['enabled'] : $own->isEnabled(),
+				'image'       => $item['image'] ?? null,
 				'stock'       => self::stock( $balances[ $id ] ?? null ),
 			) + self::prices( null === $own ? Prices::none() : $own->prices, $resolver, $now );
 		}
@@ -83,6 +84,7 @@ final class ProductSerializer {
 			'height'            => (string) ( $content['height'] ?? '' ),
 			'categories'        => $content['categories'] ?? array(),
 			'tags'              => $content['tags'] ?? array(),
+			'images'            => $content['images'] ?? array(),
 			'attributes'        => $content['attributes'] ?? array(),
 			'variations'        => $items,
 			'stock'             => Product::SIMPLE === $product->type ? self::stock( $balances[0] ?? null ) : null,
@@ -118,6 +120,7 @@ final class ProductSerializer {
 			'max_price'       => self::decimal( $row['max_price'] ),
 			'stock_status'    => (string) $row['stock_status'],
 			'stock_quantity'  => self::decimal( $row['stock_quantity'] ),
+			'image'           => is_array( $card['image'] ?? null ) ? $card['image'] : null,
 			'url'             => (string) ( $card['url'] ?? '' ),
 			'updated_at'      => self::time( (string) $row['updated_at'] ),
 		);

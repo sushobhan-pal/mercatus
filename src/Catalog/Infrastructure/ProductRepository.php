@@ -114,6 +114,17 @@ final class ProductRepository {
 	}
 
 	/**
+	 * Records a change the system made to a product, such as forgetting a deleted image (CTL-7).
+	 *
+	 * @param int               $id  Catalog product ID.
+	 * @param DateTimeImmutable $now Current time.
+	 */
+	public function bump( int $id, DateTimeImmutable $now ): void {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the module's own table.
+		$this->db->query( self::prepared( $this->db, 'UPDATE %i SET updated_at = %s, version = version + 1 WHERE id = %d', $this->table(), EventPayloadSerializer::format( $now ), $id ) );
+	}
+
+	/**
 	 * One page of vendors' products for moderators, newest first, with one extra row to tell whether more
 	 * follow. Uses the (scope, status, id) index.
 	 *

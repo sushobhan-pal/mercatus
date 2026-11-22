@@ -74,6 +74,7 @@ final class Products implements CatalogDirectory {
 	 * @param Clock                  $clock        Clock.
 	 * @param CachePort              $cache        Cache.
 	 * @param Stores                 $stores       Stores, for the seller's location and openness.
+	 * @param MediaRepository        $media        Uploads, for the images a product may use.
 	 */
 	public function __construct(
 		private ProductRepository $products,
@@ -92,6 +93,7 @@ final class Products implements CatalogDirectory {
 		private Clock $clock,
 		private CachePort $cache,
 		private Stores $stores,
+		private MediaRepository $media,
 	) {}
 
 	public function mine( ListRequest $request, string $search ): array {
@@ -121,6 +123,7 @@ final class Products implements CatalogDirectory {
 			ProductInput::assertVariations( $variations, $valid['attributes'] ?? array() );
 		}
 		$this->assertCategories( $valid );
+		$this->assertImages( $vendor_id, $valid );
 		$this->assertSkus( $vendor_id, 0, (string) ( $valid['sku'] ?? '' ), $variations );
 		$stock = Product::SIMPLE === $type ? self::balance( $location, $valid['stock'] ?? ProductInput::stock( array() ) ) : null;
 		$specs = array();
@@ -221,6 +224,7 @@ final class Products implements CatalogDirectory {
 			throw self::invalid( 'variations' );
 		}
 		$this->assertCategories( $valid );
+		$this->assertImages( $offer->vendorId, $valid );
 		$this->assertSkus( $offer->vendorId, $product->id, (string) ( $valid['sku'] ?? '' ), $valid['variations'] ?? array() );
 		$result = $this->woo->update( $product->wooProductId, self::content( $valid ), $offer->vendorId, $prices, $specs );
 		$fields = self::changedFields( $valid );
@@ -450,6 +454,41 @@ final class Products implements CatalogDirectory {
 			$this->woo->copy( $woo_id, Product::SIMPLE === $product->type ? $offer->prices : null, null, $copies );
 		}
 		$this->runner->rebuild( $this->projector, $product->id );
+	}
+
+	/**
+	 * Removes a deleted image from a vendor's products, and refreshes their rows (CTL-14).
+	 *
+	 * @param int $vendor_id     The image's vendor.
+	 * @param int $attachment_id Attachment.
+	 */
+	public function forgetImage( int $vendor_id, int $attachment_id ): void {
+		foreach ( $this->woo->productsUsingImage( $attachment_id ) as $woo_id ) {
+			$product = $this->products->byWooId( $woo_id );
+			if ( null === $product || $product->ownerVendorId !== $vendor_id ) {
+				continue;
+			}
+			$this->woo->forgetImage( $woo_id, $attachment_id );
+			$this->transactions->run(
+				function () use ( $product, $vendor_id ): void {
+					$this->products->bump( $product->id, $this->clock->now() );
+					$this->events->publish(
+						'catalog.product.updated',
+						'product',
+						$product->wooProductId,
+						$product->version + 1,
+						array(
+							'product_id' => $product->wooProductId,
+							'vendor_id'  => $vendor_id,
+							'fields'     => array( 'images' ),
+						)
+					);
+					$this->audit->record( 'product.updated', 'product', $product->wooProductId, array( 'fields' => 'images' ) );
+					$this->runner->rebuild( $this->projector, $product->id, false );
+				}
+			);
+			$this->changed( $product->id );
+		}
 	}
 
 	/**
@@ -700,6 +739,30 @@ final class Products implements CatalogDirectory {
 	}
 
 	/**
+	 * Checks that a change's images, the product's and its variations', are the seller's own media (CTL-14).
+	 * Someone else's is refused like a missing one, without saying whose it is.
+	 *
+	 * @param int                  $vendor_id Seller.
+	 * @param array<string, mixed> $valid     Valid fields.
+	 * @throws DomainError When one isn't (mercatus_product_invalid, images).
+	 */
+	private function assertImages( int $vendor_id, array $valid ): void {
+		$ids = array();
+		foreach ( is_array( $valid['images'] ?? null ) ? $valid['images'] : array() as $id ) {
+			$ids[] = (int) $id;
+		}
+		foreach ( is_array( $valid['variations'] ?? null ) ? $valid['variations'] : array() as $variation ) {
+			if ( is_array( $variation ) && is_int( $variation['image_id'] ?? null ) && $variation['image_id'] > 0 ) {
+				$ids[] = $variation['image_id'];
+			}
+		}
+		$ids = array_values( array_unique( $ids ) );
+		if ( count( $this->media->ownedAmong( $vendor_id, $ids ) ) !== count( $ids ) ) {
+			throw self::invalid( 'images' );
+		}
+	}
+
+	/**
 	 * Checks that the named categories exist.
 	 *
 	 * @param array<string, mixed> $valid Valid fields.
@@ -937,7 +1000,7 @@ final class Products implements CatalogDirectory {
 	 * @return array<string, mixed>
 	 */
 	private static function content( array $valid ): array {
-		return array_intersect_key( $valid, array_flip( array( 'name', 'description', 'short_description', 'sku', 'virtual', 'weight', 'length', 'width', 'height', 'categories', 'tags', 'attributes' ) ) );
+		return array_intersect_key( $valid, array_flip( array( 'name', 'description', 'short_description', 'sku', 'virtual', 'weight', 'length', 'width', 'height', 'categories', 'tags', 'images', 'attributes' ) ) );
 	}
 
 	/**

@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Kernel\Modules;
 
 use Mercatus\Core\Catalog\Api\CatalogMenu;
+use Mercatus\Core\Catalog\Api\CatalogMeSection;
 use Mercatus\Core\Catalog\Api\CatalogPermissions;
 use Mercatus\Core\Catalog\Api\CatalogRoutes;
 use Mercatus\Core\Catalog\Api\CatalogSettingsForm;
@@ -132,6 +133,7 @@ final class CoreModules {
 					dashboardMenu: CatalogMenu::class,
 					settings: CatalogSettings::class,
 					hooks: CatalogHooks::class,
+					meSections: array( CatalogMeSection::class ),
 					eventSubscribers: array( CatalogEmailSubscriber::class, CatalogEventSubscriber::class ),
 					settingsForm: CatalogSettingsForm::class,
 				),

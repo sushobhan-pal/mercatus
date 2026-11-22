@@ -27,12 +27,20 @@ final class StoreEventSubscriber implements EventSubscriber {
 	public function __construct( private Stores $stores ) {}
 
 	public function subscribedEvents(): array {
-		return array_merge( array( 'vendor.application.approved' ), array_keys( Stores::FOLLOWS ) );
+		return array_merge( array( 'vendor.application.approved', 'catalog.media.deleted' ), array_keys( Stores::FOLLOWS ) );
 	}
 
 	public function handle( DomainEvent $event ): void {
 		$vendor_id = $event->payload['vendor_id'] ?? null;
 		if ( ! is_int( $vendor_id ) ) {
+			return;
+		}
+		if ( 'catalog.media.deleted' === $event->name ) {
+			$attachment_id = $event->payload['attachment_id'] ?? null;
+			if ( is_int( $attachment_id ) ) {
+				$this->stores->forgetImage( $vendor_id, $attachment_id );
+			}
+
 			return;
 		}
 		if ( 'vendor.application.approved' === $event->name ) {

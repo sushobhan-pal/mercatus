@@ -10,12 +10,18 @@ declare( strict_types=1 );
 namespace Mercatus\Core\Kernel;
 
 use Mercatus\Core\Catalog\Application\CatalogDirectory;
+use Mercatus\Core\Catalog\Application\MediaDirectory;
+use Mercatus\Core\Catalog\Infrastructure\MediaLibrary;
+use Mercatus\Core\Catalog\Infrastructure\MediaOwners;
 use Mercatus\Core\Catalog\Infrastructure\Products;
+use Mercatus\Core\Catalog\Infrastructure\SettingsMediaQuota;
 use Mercatus\Core\Contracts\Cache\CachePort;
 use Mercatus\Core\Contracts\Cache\CoordinationPort;
 use Mercatus\Core\Contracts\Events\EventSubscriber;
 use Mercatus\Core\Contracts\Identity\CurrentActor;
 use Mercatus\Core\Contracts\Identity\IdentityRevisions;
+use Mercatus\Core\Contracts\Media\MediaOwnership;
+use Mercatus\Core\Contracts\Media\MediaQuota;
 use Mercatus\Core\Contracts\Module\ModuleHooks;
 use Mercatus\Core\Contracts\Settings\SettingsReader;
 use Mercatus\Core\Contracts\Settings\SettingsWriter;
@@ -192,6 +198,9 @@ final class Kernel {
 		$container->factory( VendorDirectory::class, static fn( Container $services ): VendorDirectory => $services->get( Vendors::class ) );
 		$container->factory( StoreDirectory::class, static fn( Container $services ): StoreDirectory => $services->get( Stores::class ) );
 		$container->factory( CatalogDirectory::class, static fn( Container $services ): CatalogDirectory => $services->get( Products::class ) );
+		$container->factory( MediaDirectory::class, static fn( Container $services ): MediaDirectory => $services->get( MediaLibrary::class ) );
+		$container->factory( MediaOwnership::class, static fn( Container $services ): MediaOwnership => $services->get( MediaOwners::class ) );
+		$container->factory( MediaQuota::class, static fn( Container $services ): MediaQuota => $services->get( SettingsMediaQuota::class ) );
 		$container->factory( RateLimiter::class, static fn( Container $services ): RateLimiter => new RateLimiter( $services->get( CoordinationPort::class ), $services->get( SettingsReader::class ), static fn(): int => $services->get( Clock::class )->now()->getTimestamp() ) );
 		$container->factory( EventPublisher::class, static fn( Container $services ): EventPublisher => $services->get( OutboxEventPublisher::class ) );
 		$container->factory( AuditLog::class, static fn( Container $services ): AuditLog => $services->get( BufferedAuditLog::class ) );

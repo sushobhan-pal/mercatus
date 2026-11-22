@@ -74,6 +74,7 @@ final class AvailabilityProjector implements Projector {
 				'type'  => $product->type,
 				'name'  => (string) $content['name'],
 				'url'   => (string) $content['url'],
+				'image' => is_array( $content['images'] ?? null ) ? ( $content['images'][0] ?? null ) : null,
 				'store' => null === $pair ? null : array(
 					'name' => $pair[0]->name,
 					'url'  => $this->urls->url( $pair[0]->slug ),

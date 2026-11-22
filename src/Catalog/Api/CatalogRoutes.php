@@ -12,6 +12,7 @@ namespace Mercatus\Core\Catalog\Api;
 use Mercatus\Core\Catalog\Application\CatalogAccess;
 use Mercatus\Core\Catalog\Application\CatalogDirectory;
 use Mercatus\Core\Catalog\Application\CatalogFields;
+use Mercatus\Core\Catalog\Application\MediaDirectory;
 use Mercatus\Core\Contracts\Http\Access;
 use Mercatus\Core\Contracts\Http\RouteProvider;
 use Mercatus\Core\Contracts\Http\RouteRegistrar;
@@ -39,8 +40,9 @@ final class CatalogRoutes implements RouteProvider {
 	 * Creates the routes.
 	 *
 	 * @param CatalogDirectory $catalog Products.
+	 * @param MediaDirectory   $media   Vendors' images.
 	 */
-	public function __construct( private CatalogDirectory $catalog ) {}
+	public function __construct( private CatalogDirectory $catalog, private MediaDirectory $media ) {}
 
 	public function routes( RouteRegistrar $routes ): void {
 		$full = static fn(): array => self::productSchema();
@@ -77,6 +79,22 @@ final class CatalogRoutes implements RouteProvider {
 		$routes->add( '/products/' . self::ID . '/approve', array( $this->endpoint( 'POST', 'approve', Access::Admin, CatalogAccess::MODERATE, 'Approve a pending or taken-down product' ) ), $full );
 		$routes->add( '/products/' . self::ID . '/reject', array( $this->endpoint( 'POST', 'reject', Access::Admin, CatalogAccess::MODERATE, 'Reject a pending product, with a reason', self::reasonArg() ) ), $full );
 		$routes->add( '/products/' . self::ID . '/take-down', array( $this->endpoint( 'POST', 'takeDown', Access::Admin, CatalogAccess::MODERATE, 'Take down an approved product, with a reason', self::reasonArg() ) ), $full );
+		$routes->add(
+			'/me/media',
+			array(
+				$this->endpoint( 'GET', 'library', Access::Tenant, null, 'Your images, newest first', self::mediaListing()->args(), false, 'media' ),
+				$this->endpoint( 'POST', 'upload', Access::Tenant, null, 'Upload an image, as the multipart field file', self::uploadArgs(), false, 'media' ),
+			),
+			static fn(): array => self::mediaSchema()
+		);
+		$routes->add(
+			'/me/media/' . self::ID,
+			array(
+				$this->endpoint( 'GET', 'image', Access::Tenant, null, 'One of your images', array(), false, 'media' ),
+				$this->endpoint( 'DELETE', 'deleteMedia', Access::Tenant, null, 'Delete one of your images, from your products and store too', array(), false, 'media' ),
+			),
+			static fn(): array => self::mediaSchema()
+		);
 		$routes->add(
 			'/catalog/categories',
 			array( $this->endpoint( 'GET', 'categories', Access::Open, null, 'One level of the product categories', self::categoryListing()->args() + self::categoryArgs(), false, 'category' ) ),
@@ -242,6 +260,57 @@ final class CatalogRoutes implements RouteProvider {
 	}
 
 	/**
+	 * GET /me/media.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 */
+	public function library( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->guard(
+			function () use ( $request ): WP_REST_Response {
+				$list = self::mediaListing()->parse( $request->get_params() + array( 'order' => 'desc' ) );
+
+				return Page::response( $this->media->mine( $list ), $list, static fn( array $row ): array => $row['media'] );
+			}
+		);
+	}
+
+	/**
+	 * POST /me/media: one image, as the multipart field `file` (CTL-24).
+	 *
+	 * @param WP_REST_Request $request Request.
+	 */
+	public function upload( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->guard(
+			function () use ( $request ): WP_REST_Response {
+				$files    = $request->get_file_params();
+				$response = new WP_REST_Response( $this->media->upload( is_array( $files['file'] ?? null ) ? $files['file'] : array() ) );
+				$response->set_status( 201 );
+
+				return $response;
+			}
+		);
+	}
+
+	/**
+	 * GET /me/media/{id}.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 */
+	public function image( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->guard( fn(): WP_REST_Response => new WP_REST_Response( $this->media->get( self::id( $request ) ) ) );
+	}
+
+	/**
+	 * DELETE /me/media/{id}: also takes it off the vendor's products and store (CTL-14), and answers with
+	 * what was deleted.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 */
+	public function deleteMedia( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->guard( fn(): WP_REST_Response => new WP_REST_Response( $this->media->delete( self::id( $request ) ) ) );
+	}
+
+	/**
 	 * Runs work, turning core.catalog's domain errors into REST errors.
 	 *
 	 * @param callable(): WP_REST_Response $work Work.
@@ -254,6 +323,11 @@ final class CatalogRoutes implements RouteProvider {
 				$error,
 				array(
 					'mercatus_product_unknown'        => array( 404, __( 'There is no such product.', 'mercatus' ) ),
+					'mercatus_media_unknown'          => array( 404, __( 'There is no such image.', 'mercatus' ) ),
+					'mercatus_media_upload_failed'    => array( 400, __( 'The image didn’t arrive. Please try again.', 'mercatus' ) ),
+					'mercatus_media_too_large'        => array( 413, __( 'The image is larger than the marketplace allows.', 'mercatus' ) ),
+					'mercatus_media_type_refused'     => array( 415, __( 'Upload a JPEG, PNG, GIF or WebP image.', 'mercatus' ) ),
+					'mercatus_media_quota_exceeded'   => array( 422, __( 'Your media space is full. Delete some images first.', 'mercatus' ) ),
 					'mercatus_store_unknown'          => array( 404, __( 'There is no such store.', 'mercatus' ) ),
 					'mercatus_product_invalid'        => array( 422, __( 'Please check the highlighted field.', 'mercatus' ) ),
 					'mercatus_product_incomplete'     => array( 422, __( 'Add a name and a price before publishing.', 'mercatus' ) ),
@@ -332,6 +406,28 @@ final class CatalogRoutes implements RouteProvider {
 	 */
 	private static function categoryListing(): ListDefinition {
 		return new ListDefinition( array( 'name' => 'string' ), array(), 100, 100 );
+	}
+
+	/**
+	 * The media list: newest first.
+	 */
+	private static function mediaListing(): ListDefinition {
+		return new ListDefinition( array( 'created_at' => 'string' ), array(), 48, 100 );
+	}
+
+	/**
+	 * The upload's file field.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function uploadArgs(): array {
+		return array(
+			'file' => array(
+				'type'        => 'string',
+				'format'      => 'binary',
+				'description' => 'The image: JPEG, PNG, GIF or WebP, or AVIF where the server can process it. /me lists what this server accepts.',
+			),
+		);
 	}
 
 	/**
@@ -457,6 +553,12 @@ final class CatalogRoutes implements RouteProvider {
 				'items'       => array( 'type' => 'string' ),
 				'description' => 'Tag names; a new one is created.',
 			),
+			'images'            => array(
+				'type'        => 'array',
+				'maxItems'    => CatalogFields::IMAGES_MAX,
+				'items'       => array( 'type' => 'integer' ),
+				'description' => 'IDs of your uploaded images: the first is the product\'s image, the rest its gallery.',
+			),
 			'attributes'        => array(
 				'type'        => 'array',
 				'maxItems'    => CatalogFields::ATTRIBUTES_MAX,
@@ -467,7 +569,7 @@ final class CatalogRoutes implements RouteProvider {
 				'type'        => 'array',
 				'maxItems'    => CatalogFields::VARIATIONS_MAX,
 				'items'       => array( 'type' => 'object' ),
-				'description' => 'A variable product\'s variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled and prices.',
+				'description' => 'A variable product\'s variations, the complete list: id (for an existing one), attributes, sku, description, virtual, dimensions, enabled, image_id (one of your images, or 0) and prices.',
 			),
 		);
 		foreach ( array( 'weight', 'length', 'width', 'height' ) as $dimension ) {
@@ -613,6 +715,11 @@ final class CatalogRoutes implements RouteProvider {
 					'type'  => 'array',
 					'items' => array( 'type' => 'string' ),
 				),
+				'images'            => array(
+					'type'        => 'array',
+					'items'       => array( 'type' => 'object' ),
+					'description' => 'id, url, thumbnail and alt of each image; the first is the product\'s image.',
+				),
 				'attributes'        => array(
 					'type'        => 'array',
 					'items'       => array( 'type' => 'object' ),
@@ -662,6 +769,10 @@ final class CatalogRoutes implements RouteProvider {
 				'max_price'       => $nullable,
 				'stock_status'    => array( 'type' => 'string' ),
 				'stock_quantity'  => $nullable,
+				'image'           => array(
+					'type'        => array( 'object', 'null' ),
+					'description' => 'The product\'s image: id, url, thumbnail and alt.',
+				),
 				'url'             => array( 'type' => 'string' ),
 				'updated_at'      => array( 'type' => 'string' ),
 			)
@@ -690,6 +801,32 @@ final class CatalogRoutes implements RouteProvider {
 		}
 
 		return $item;
+	}
+
+	/**
+	 * Schema of an uploaded image.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function mediaSchema(): array {
+		return Schema::object(
+			array(
+				'id'            => array(
+					'type'        => 'integer',
+					'description' => 'The attachment ID.',
+				),
+				'url'           => array( 'type' => 'string' ),
+				'thumbnail_url' => array( 'type' => 'string' ),
+				'mime'          => array( 'type' => 'string' ),
+				'bytes'         => array(
+					'type'        => 'integer',
+					'description' => 'With the sizes made of it, as counted against your space.',
+				),
+				'width'         => array( 'type' => 'integer' ),
+				'height'        => array( 'type' => 'integer' ),
+				'created_at'    => array( 'type' => 'string' ),
+			)
+		);
 	}
 
 	/**

@@ -15,13 +15,14 @@ use Mercatus\Core\Contracts\Identity\DashboardMenuProvider;
 use Mercatus\Core\Contracts\Identity\MenuItem;
 
 /**
- * Vendors manage their products; administrators, and managers holding products.moderate, moderate them.
+ * Vendors manage their products and images; administrators, and managers holding products.moderate, moderate them.
  */
 final class CatalogMenu implements DashboardMenuProvider {
 
 	public function items(): array {
 		return array(
 			new MenuItem( 'products', __( 'Products', 'mercatus' ), 'products', Access::Tenant, position: 14 ),
+			new MenuItem( 'media', __( 'Media', 'mercatus' ), 'media', Access::Tenant, position: 15 ),
 			new MenuItem( 'moderation', __( 'Moderation', 'mercatus' ), 'moderation', Access::Admin, CatalogAccess::MODERATE, position: 34 ),
 		);
 	}

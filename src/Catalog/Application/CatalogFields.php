@@ -34,6 +34,8 @@ final class CatalogFields {
 
 	public const TAGS_MAX = ProductInput::TAGS_MAX;
 
+	public const IMAGES_MAX = ProductInput::IMAGES_MAX;
+
 	public const ATTRIBUTES_MAX = ProductInput::ATTRIBUTES_MAX;
 
 	public const VARIATIONS_MAX = ProductInput::VARIATIONS_MAX;
